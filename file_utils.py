@@ -218,3 +218,41 @@ def validate_headers(headers_dict: Dict[str, str], required_fields: List[str]) -
             missing_fields.append(field)
     
     return (len(missing_fields) == 0, missing_fields)
+
+
+def generate_joke_id() -> str:
+    """
+    Generate a unique UUID for a joke.
+    
+    Returns:
+        UUID string in format "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+    """
+    return str(uuid.uuid4())
+
+
+def initialize_metadata(headers: Dict[str, str], email_filename: str, stage_name: str) -> Dict[str, str]:
+    """
+    Initialize metadata fields for a joke file.
+    
+    Args:
+        headers: Existing headers dictionary
+        email_filename: Name of the source email file
+        stage_name: Name of the pipeline stage
+        
+    Returns:
+        Updated headers dictionary with metadata fields
+    """
+    # Create a copy to avoid modifying the original
+    updated_headers = headers.copy()
+    
+    # Add Joke-ID if not present (don't overwrite existing)
+    if 'Joke-ID' not in updated_headers:
+        updated_headers['Joke-ID'] = generate_joke_id()
+    
+    # Add Source-Email-File
+    updated_headers['Source-Email-File'] = email_filename
+    
+    # Add Pipeline-Stage
+    updated_headers['Pipeline-Stage'] = stage_name
+    
+    return updated_headers

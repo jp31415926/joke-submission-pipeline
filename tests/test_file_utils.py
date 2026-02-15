@@ -12,7 +12,7 @@ from unittest.mock import patch
 import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from file_utils import parse_joke_file, write_joke_file, validate_headers, atomic_write, atomic_move, safe_cleanup
+from file_utils import parse_joke_file, write_joke_file, validate_headers, atomic_write, atomic_move, safe_cleanup, generate_joke_id, initialize_metadata
 
 
 class TestFileUtils(unittest.TestCase):
@@ -277,6 +277,96 @@ This is a joke with blank title.
             safe_cleanup(nonexistent_file)
         except Exception as e:
             self.fail(f"safe_cleanup raised exception on non-existent file: {e}")
+    
+    def test_generate_joke_id_returns_valid_uuid(self):
+        """Test generate_joke_id returns valid UUID format"""
+        import re
+        uuid_pattern = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')
+        
+        joke_id = generate_joke_id()
+        
+        # Verify it's a string
+        self.assertIsInstance(joke_id, str)
+        
+        # Verify it matches UUID format
+        self.assertIsNotNone(uuid_pattern.match(joke_id))
+    
+    def test_generate_joke_id_creates_unique_ids(self):
+        """Test generate_joke_id creates unique IDs (generate 100, verify all unique)"""
+        joke_ids = [generate_joke_id() for _ in range(100)]
+        
+        # Verify all are unique
+        self.assertEqual(len(joke_ids), len(set(joke_ids)))
+    
+    def test_initialize_metadata_adds_joke_id(self):
+        """Test initialize_metadata adds Joke-ID"""
+        headers = {
+            "Title": "Test Joke",
+            "Submitter": "test@example.com"
+        }
+        
+        updated_headers = initialize_metadata(headers, "test_email.txt", "01_extracted")
+        
+        # Verify Joke-ID was added
+        self.assertIn("Joke-ID", updated_headers)
+        
+        # Verify it's a valid UUID format
+        import re
+        uuid_pattern = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')
+        self.assertIsNotNone(uuid_pattern.match(updated_headers["Joke-ID"]))
+    
+    def test_initialize_metadata_adds_source_email_file(self):
+        """Test initialize_metadata adds Source-Email-File"""
+        headers = {
+            "Title": "Test Joke",
+            "Submitter": "test@example.com"
+        }
+        
+        updated_headers = initialize_metadata(headers, "test_email.txt", "01_extracted")
+        
+        # Verify Source-Email-File was added
+        self.assertIn("Source-Email-File", updated_headers)
+        self.assertEqual(updated_headers["Source-Email-File"], "test_email.txt")
+    
+    def test_initialize_metadata_adds_pipeline_stage(self):
+        """Test initialize_metadata adds Pipeline-Stage"""
+        headers = {
+            "Title": "Test Joke",
+            "Submitter": "test@example.com"
+        }
+        
+        updated_headers = initialize_metadata(headers, "test_email.txt", "01_extracted")
+        
+        # Verify Pipeline-Stage was added
+        self.assertIn("Pipeline-Stage", updated_headers)
+        self.assertEqual(updated_headers["Pipeline-Stage"], "01_extracted")
+    
+    def test_initialize_metadata_preserves_existing_headers(self):
+        """Test initialize_metadata preserves existing headers (Title, Submitter)"""
+        headers = {
+            "Title": "Test Joke",
+            "Submitter": "test@example.com"
+        }
+        
+        updated_headers = initialize_metadata(headers, "test_email.txt", "01_extracted")
+        
+        # Verify existing headers are preserved
+        self.assertEqual(updated_headers["Title"], "Test Joke")
+        self.assertEqual(updated_headers["Submitter"], "test@example.com")
+    
+    def test_initialize_metadata_doesnt_overwrite_existing_joke_id(self):
+        """Test initialize_metadata doesn't overwrite existing Joke-ID"""
+        existing_joke_id = "550e8400-e29b-41d4-a716-446655440000"
+        headers = {
+            "Joke-ID": existing_joke_id,
+            "Title": "Test Joke",
+            "Submitter": "test@example.com"
+        }
+        
+        updated_headers = initialize_metadata(headers, "test_email.txt", "01_extracted")
+        
+        # Verify existing Joke-ID is not overwritten
+        self.assertEqual(updated_headers["Joke-ID"], existing_joke_id)
 
 
 if __name__ == '__main__':
