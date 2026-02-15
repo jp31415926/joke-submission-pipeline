@@ -3,7 +3,7 @@
 ## Files
 `spec3.md` - Project specification
 `blueprint.md` - Project blueprint and prompts
-`prompts.md` - Prompts for the developer sub-agent
+`prompts/` - Prompts for the developer sub-agent
 `orchestrator-instructions.md` - instructions for the @orchestrator manager agent only
 
 ## Directories
@@ -16,7 +16,7 @@
 
 ## External File Loading
 
-CRITICAL: When you encounter a file reference (e.g., @docs/spec.md), use your Read tool to load it on a need-to-know basis. They're relevant to the SPECIFIC task at hand.
+CRITICAL: When you encounter a file reference (e.g., @spec3.md), use your Read tool to load it on a need-to-know basis. They're relevant to the SPECIFIC task at hand.
 
 Instructions:
 
