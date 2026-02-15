@@ -1,0 +1,17 @@
+Joke-ID: 550e8400-e29b-41d4-a716-446655440000
+Title: Why the Chicken Crossed the Road
+Submitter: "John Doe" <john@example.com>
+Source-Email-File: 1700000000.M1234.mailbox
+Pipeline-Stage: 07_titled
+Duplicate-Score: 42
+Duplicate-Threshold: 70
+Cleanliness-Status: PASS
+Cleanliness-Confidence: 85
+Format-Status: PASS
+Format-Confidence: 92
+Categories: Animals, Wordplay
+Category-Confidence: 77
+Rejection-Reason:
+
+Why did the chicken cross the road?
+To get to the other side!

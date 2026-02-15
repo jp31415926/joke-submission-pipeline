@@ -1,0 +1,4 @@
+Title: 
+Submitter: "John Doe" <john@example.com>
+
+This is a joke with blank title.
