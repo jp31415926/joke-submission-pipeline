@@ -1,0 +1,231 @@
+#!/usr/bin/env python3
+"""
+Base class for all pipeline stage processors with retry logic and priority handling.
+"""
+
+import os
+import shutil
+from abc import ABC, abstractmethod
+from typing import Tuple, Dict, List
+from logging import Logger
+
+from file_utils import parse_joke_file, atomic_write, atomic_move
+from logging_utils import get_logger
+import config
+
+
+class StageProcessor(ABC):
+    """
+    Abstract base class for all pipeline stage processors.
+    
+    This class handles the common logic for:
+    - Processing files in priority and main pipelines
+    - Retry logic for failed processing
+    - Atomic file moves
+    - Logging
+    """
+    
+    def __init__(self, stage_name: str, input_stage: str, output_stage: str, 
+                 reject_stage: str, config_module):
+        """
+        Initialize the stage processor.
+        
+        Args:
+            stage_name: Name of the stage (e.g., "parsed")
+            input_stage: Input stage directory name (e.g., "incoming")
+            output_stage: Output stage directory name (e.g., "deduped")
+            reject_stage: Reject stage directory name (e.g., "rejected_duplicate")
+            config_module: Configuration module
+        """
+        self.stage_name = stage_name
+        self.input_stage = input_stage
+        self.output_stage = output_stage
+        self.reject_stage = reject_stage
+        self.config = config_module
+        self.logger = get_logger("StageProcessor")
+        
+    @abstractmethod
+    def process_file(self, filepath: str, headers: Dict[str, str], content: str) -> Tuple[bool, Dict[str, str], str, str]:
+        """
+        Process a single joke file. This method must be implemented by subclasses.
+        
+        Args:
+            filepath: Path to the joke file
+            headers: Dictionary of headers from the joke file
+            content: Joke content
+            
+        Returns:
+            Tuple of (success: bool, updated_headers: dict, updated_content: str, reject_reason: str)
+            reject_reason only used if success is False
+        """
+        pass
+    
+    def run(self):
+        """
+        Run the stage processor on all files in the priority and main pipelines.
+        """
+        # Process priority pipeline first
+        priority_input_dir = os.path.join(self.config.PIPELINE_PRIORITY, self.input_stage)
+        if os.path.exists(priority_input_dir):
+            self.logger.info(f"Starting processing of priority pipeline files in {priority_input_dir}")
+            self._process_files_in_directory(priority_input_dir)
+            self.logger.info(f"Completed processing of priority pipeline files in {priority_input_dir}")
+            
+        # Then process main pipeline
+        main_input_dir = os.path.join(self.config.PIPELINE_MAIN, self.input_stage)
+        if os.path.exists(main_input_dir):
+            self.logger.info(f"Starting processing of main pipeline files in {main_input_dir}")
+            self._process_files_in_directory(main_input_dir)
+            self.logger.info(f"Completed processing of main pipeline files in {main_input_dir}")
+    
+    def _process_files_in_directory(self, input_dir: str):
+        """
+        Process all files in a given input directory.
+        
+        Args:
+            input_dir: Path to the input directory
+        """
+        # Get all files in directory (recursively)
+        for root, dirs, files in os.walk(input_dir):
+            # Skip tmp directories
+            dirs[:] = [d for d in dirs if d != 'tmp']
+            
+            # Process files in this directory
+            for filename in files:
+                if filename == '.DS_Store' or filename.startswith('.'):
+                    # Skip hidden or system files
+                    continue
+                    
+                filepath = os.path.join(root, filename)
+                self._process_with_retry(filepath)
+    
+    def _process_with_retry(self, filepath: str):
+        """
+        Process a file with retry logic.
+        
+        Args:
+            filepath: Path to the joke file
+        """
+        # Get Joke-ID from the file to use in logging
+        joke_id = 'unknown'
+        try:
+            headers, _ = parse_joke_file(filepath)
+            joke_id = headers.get('Joke-ID', 'unknown')
+        except Exception as e:
+            self.logger.error(f"Could not parse headers from {filepath}: {e}")
+        
+        self.logger.info(f"Starting to process file {filepath} (Joke-ID: {joke_id})")
+        
+        retries = 0
+        max_retries = self.config.MAX_RETRIES
+        
+        while retries <= max_retries:
+            try:
+                # Read the file
+                headers, content = parse_joke_file(filepath)
+                
+                # Call the abstract process function
+                success, updated_headers, updated_content, reject_reason = self.process_file(filepath, headers, content)
+                
+                if success:
+                    self._move_to_output(filepath, updated_headers, updated_content)
+                    self.logger.info(f"Successfully processed file {filepath} (Joke-ID: {joke_id})")
+                    return
+                else:
+                    # If not successful, check if we've exhausted retries
+                    if retries < max_retries:
+                        retries += 1
+                        self.logger.warning(f"Processing failed for {filepath} (Joke-ID: {joke_id}), retry {retries}/{max_retries}")
+                    else:
+                        # Final failure - move to reject directory
+                        self._move_to_reject(filepath, headers, content, reject_reason)
+                        self.logger.error(f"Processing failed after {max_retries} retries for {filepath} (Joke-ID: {joke_id}). Reason: {reject_reason}")
+                        return
+                        
+            except Exception as e:
+                # If exception occurs, check if we can retry
+                if retries < max_retries:
+                    retries += 1
+                    self.logger.warning(f"Exception in processing {filepath} (Joke-ID: {joke_id}), retry {retries}/{max_retries}: {e}")
+                else:
+                    # Final failure - move to reject directory
+                    # If headers is not defined at this point (due to exception during parse), we still need to handle this
+                    try:
+                        headers, content = parse_joke_file(filepath)
+                    except:
+                        # At this point, we don't have working headers so we make placeholders
+                        headers = {}
+                        content = ""
+                    self._move_to_reject(filepath, headers, content, f"Exception occurred: {e}")
+                    self.logger.error(f"Exception in processing {filepath} (Joke-ID: {joke_id}) after {max_retries} retries: {e}")
+                    return
+        
+    def _move_to_output(self, filepath: str, headers: Dict[str, str], content: str):
+        """
+        Move a successful file to the output stage directory.
+        
+        Args:
+            filepath: Path to the input file
+            headers: Updated headers for the file
+            content: Updated content for the file
+        """
+        # Update the Pipeline-Stage header
+        headers['Pipeline-Stage'] = self.output_stage
+        
+        # Get Joke-ID from headers for logging
+        joke_id = headers.get('Joke-ID', 'unknown')
+        
+        # Determine output directory
+        output_dir = os.path.join(self.config.PIPELINE_MAIN, self.output_stage)
+        if os.path.exists(os.path.join(self.config.PIPELINE_PRIORITY, self.input_stage)):
+            # If priority pipeline was processed, use priority output directory
+            output_dir = os.path.join(self.config.PIPELINE_PRIORITY, self.output_stage)
+            
+        # Write file atomically to output directory
+        atomic_write(filepath, headers, content)
+        
+        # Move to final output directory
+        final_output_dir = os.path.join(self.config.PIPELINE_MAIN, self.output_stage)
+        if os.path.exists(os.path.join(self.config.PIPELINE_PRIORITY, self.input_stage)):
+            final_output_dir = os.path.join(self.config.PIPELINE_PRIORITY, self.output_stage)
+            
+        atomic_move(filepath, final_output_dir)
+        
+        self.logger.info(f"Moved successful file from {filepath} to {final_output_dir} (Joke-ID: {joke_id})")
+    
+    def _move_to_reject(self, filepath: str, headers: Dict[str, str], content: str, reason: str):
+        """
+        Move a failed file to the reject stage directory.
+        
+        Args:
+            filepath: Path to the input file
+            headers: Headers for the file (may be modified)
+            content: Content for the file
+            reason: Reason for rejection
+        """
+        # Update the Pipeline-Stage header
+        headers['Pipeline-Stage'] = self.reject_stage
+        
+        # Add the Rejection-Reason to headers
+        headers['Rejection-Reason'] = reason
+        
+        # Get Joke-ID from headers for logging
+        joke_id = headers.get('Joke-ID', 'unknown')
+        
+        # Determine reject directory
+        reject_dir = os.path.join(self.config.PIPELINE_MAIN, self.reject_stage)
+        if os.path.exists(os.path.join(self.config.PIPELINE_PRIORITY, self.input_stage)):
+            # If priority pipeline was processed, use priority reject directory
+            reject_dir = os.path.join(self.config.PIPELINE_PRIORITY, self.reject_stage)
+            
+        # Write file atomically to reject directory
+        atomic_write(filepath, headers, content)
+        
+        # Move to final reject directory
+        final_reject_dir = os.path.join(self.config.PIPELINE_MAIN, self.reject_stage)
+        if os.path.exists(os.path.join(self.config.PIPELINE_PRIORITY, self.input_stage)):
+            final_reject_dir = os.path.join(self.config.PIPELINE_PRIORITY, self.reject_stage)
+            
+        atomic_move(filepath, final_reject_dir)
+        
+        self.logger.info(f"Moved rejected file from {filepath} to {final_reject_dir} (Joke-ID: {joke_id}). Reason: {reason}")
