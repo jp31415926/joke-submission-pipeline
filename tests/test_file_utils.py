@@ -42,10 +42,10 @@ Over dinner, I explained the health benefits of a colorful meal to my family. "T
         headers, content = parse_joke_file(test_file)
         
         self.assertEqual(headers['Title'], "Colorful Meal")
-        self.assertEqual(headers['Submitter'], "'Thomas S. Ellsworth' tellswor@kcbx.net [good-clean-fun] <good-clean-fun-noreply@yahoogroups.com>")
+        self.assertEqual(headers['Submitter'], "\"'Thomas S. Ellsworth' tellswor@kcbx.net [good-clean-fun]\" <good-clean-fun-noreply@yahoogroups.com>")
         self.assertEqual(content.strip(), """Over dinner, I explained the health benefits of a colorful meal to my family. "The more colors, the more variety of nutrients," I told them. Pointing to our food, I asked, "How many different colors do you see?"
 
-"Six," volunteered my daughter. "Seven if you count the burned parts." """)
+"Six," volunteered my daughter. "Seven if you count the burned parts.\"""")
     
     def test_parse_full_pipeline_format(self):
         """Test parsing full pipeline format (all headers)"""
@@ -182,7 +182,7 @@ This is a joke with blank title.
         self.assertEqual(headers, {})
         self.assertEqual(content.strip(), """Over dinner, I explained the health benefits of a colorful meal to my family. "The more colors, the more variety of nutrients," I told them. Pointing to our food, I asked, "How many different colors do you see?"
 
-"Six," volunteered my daughter. "Seven if you count the burned parts." """)
+"Six," volunteered my daughter. "Seven if you count the burned parts.\"""")
     
     def test_atomic_write(self):
         """Test atomic_write creates file in tmp/ first and moves to final destination"""
