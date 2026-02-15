@@ -5,6 +5,8 @@ File utilities for parsing and writing joke file headers and content.
 
 import os
 import re
+import shutil
+import uuid
 from typing import Tuple, Dict, List
 
 def parse_joke_file(filepath: str) -> Tuple[Dict[str, str], str]:
@@ -98,6 +100,102 @@ def write_joke_file(filepath: str, headers_dict: Dict[str, str], content: str):
         
         # Write content
         f.write(content)
+
+
+def atomic_write(target_path: str, headers_dict: Dict[str, str], content: str) -> bool:
+    """
+    Write a joke file atomically using tmp/ subdirectory.
+    
+    Args:
+        target_path: Full path where the file should be written
+        headers_dict: Dictionary of headers to write
+        content: Joke content to write
+        
+    Returns:
+        True on success
+        
+    Raises:
+        Exception: If write fails for any reason
+    """
+    # Extract directory from target_path
+    target_dir = os.path.dirname(target_path)
+    
+    # Create tmp/ subdirectory if it doesn't exist
+    tmp_dir = os.path.join(target_dir, 'tmp')
+    os.makedirs(tmp_dir, exist_ok=True)
+    
+    # Generate temporary filename in tmp/
+    temp_filename = f"{uuid.uuid4().hex}.txt"
+    temp_path = os.path.join(tmp_dir, temp_filename)
+    
+    # Write file to temporary location using write_joke_file
+    write_joke_file(temp_path, headers_dict, content)
+    
+    # Move temporary file to target_path using os.rename (atomic on same filesystem)
+    os.rename(temp_path, target_path)
+    
+    return True
+
+
+def atomic_move(source_path: str, dest_dir: str) -> str:
+    """
+    Move a joke file atomically using tmp/ subdirectory.
+    
+    Args:
+        source_path: Path to source file
+        dest_dir: Destination directory
+        
+    Returns:
+        Destination path on success
+        
+    Raises:
+        Exception: If move fails for any reason
+    """
+    # Verify source_path exists
+    if not os.path.exists(source_path):
+        raise FileNotFoundError(f"Source file does not exist: {source_path}")
+    
+    # Extract filename from source_path
+    filename = os.path.basename(source_path)
+    
+    # Create dest_dir if it doesn't exist
+    os.makedirs(dest_dir, exist_ok=True)
+    
+    # Create tmp/ subdirectory in dest_dir if it doesn't exist
+    tmp_dir = os.path.join(dest_dir, 'tmp')
+    os.makedirs(tmp_dir, exist_ok=True)
+    
+    # Copy source to dest_dir/tmp/<filename>
+    temp_path = os.path.join(tmp_dir, filename)
+    shutil.copy2(source_path, temp_path)
+    
+    # Move from dest_dir/tmp/<filename> to dest_dir/<filename> using os.rename
+    dest_path = os.path.join(dest_dir, filename)
+    os.rename(temp_path, dest_path)
+    
+    # Delete source file only after successful move
+    os.remove(source_path)
+    
+    return dest_path
+
+
+def safe_cleanup(filepath: str):
+    """
+    Safely remove a file if it exists.
+    
+    Args:
+        filepath: Path to file to delete
+    """
+    # Check if filepath exists
+    if os.path.exists(filepath):
+        # If exists, delete it
+        try:
+            os.remove(filepath)
+            # Log deletion using print (proper logging in Step 4)
+            print(f"Deleted file: {filepath}")
+        except Exception as e:
+            # Handle errors gracefully (don't raise if file doesn't exist)
+            print(f"Error deleting file {filepath}: {e}")
 
 
 def validate_headers(headers_dict: Dict[str, str], required_fields: List[str]) -> Tuple[bool, List[str]]:
