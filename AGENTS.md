@@ -4,6 +4,10 @@
 `spec3.md` - Project specification
 `blueprint.md` - Project blueprint and prompts
 `prompts/` - Prompts for the developer sub-agent
+`prompts/prompt_1.md` - prompt for step 1
+`prompts/prompt_2.md` - prompt for step 2
+...
+`prompts/prompt_16.md` - prompt for step 16
 `orchestrator-instructions.md` - instructions for the @orchestrator manager agent only
 
 ## Directories

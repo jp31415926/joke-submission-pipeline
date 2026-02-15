@@ -2,7 +2,7 @@
 description: >-
   Use this agent when executing sequential steps given or in a specified file.
 mode: all
-model: "ollama/qwen3:4b"
+model: "ollama/qwen3:8b"
 temperature: 0.2
 auto_execute: true
 session_mode: "stateless"
