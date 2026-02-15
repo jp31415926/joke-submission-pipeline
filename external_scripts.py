@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
-"""Utilities for safely calling external scripts and parsing their output."""
+"""
+Utilities for safely calling external scripts and parsing their output.
+"""
 
 import os
 import subprocess
+import logging
 from typing import Tuple
-from logging_utils import setup_logger
 
-logger = setup_logger(__name__)
+from logging_utils import get_logger
+
+logger = get_logger(__name__)
 
 
 def run_external_script(
@@ -15,16 +19,16 @@ def run_external_script(
   timeout: int = 60
 ) -> Tuple[int, str, str]:
   """
-  Execute an external script and capture its output.
-
+  Execute an external script with arguments and capture output.
+  
   Args:
-    script_path: Path to the script to execute
-    args: List of arguments to pass to the script
-    timeout: Timeout in seconds (default: 60)
-
+    script_path (str): Path to the script to execute
+    args (list): List of arguments to pass to the script
+    timeout (int): Timeout in seconds (default: 60)
+    
   Returns:
-    Tuple of (return_code, stdout, stderr)
-
+    Tuple[int, str, str]: (return_code, stdout, stderr)
+    
   Raises:
     FileNotFoundError: If script_path doesn't exist
     PermissionError: If script is not executable
@@ -32,20 +36,18 @@ def run_external_script(
   """
   # Verify script exists
   if not os.path.exists(script_path):
-    error_msg = f"Script not found: {script_path}"
-    logger.error(error_msg)
-    raise FileNotFoundError(error_msg)
-
+    logger.error(f"Script not found: {script_path}")
+    raise FileNotFoundError(f"Script not found: {script_path}")
+  
   # Verify script is executable
   if not os.access(script_path, os.X_OK):
-    error_msg = f"Script is not executable: {script_path}"
-    logger.error(error_msg)
-    raise PermissionError(error_msg)
-
+    logger.error(f"Script is not executable: {script_path}")
+    raise PermissionError(f"Script is not executable: {script_path}")
+  
   # Build command
   command = [script_path] + args
-  logger.info(f"Executing command: {' '.join(command)}")
-
+  logger.info(f"Executing external script: {' '.join(command)}")
+  
   try:
     # Execute script
     result = subprocess.run(
@@ -55,62 +57,64 @@ def run_external_script(
       timeout=timeout,
       check=False
     )
-
+    
+    # Log result
     logger.info(
-      f"Command completed with return code {result.returncode}"
+      f"Script completed with return code {result.returncode}: {script_path}"
     )
     if result.stderr:
-      logger.warning(f"stderr: {result.stderr}")
-
+      logger.warning(f"Script stderr: {result.stderr}")
+    
     return (result.returncode, result.stdout, result.stderr)
-
+    
   except subprocess.TimeoutExpired as e:
-    error_msg = f"Command timed out after {timeout} seconds"
-    logger.error(error_msg)
+    logger.error(f"Script timed out after {timeout}s: {script_path}")
     raise
-
   except PermissionError as e:
-    error_msg = f"Permission denied executing {script_path}"
-    logger.error(error_msg)
+    logger.error(f"Permission error executing script: {script_path}")
     raise
 
 
 def parse_tfidf_score(output: str) -> int:
   """
-  Parse search_tfidf.py output format and extract score.
-
+  Parse TF-IDF score from search_tfidf.py output.
+  
   Expected format: "91 9278 A Meaningful New Year's Gesture"
-  Extracts the first integer (the score).
-
+  Returns the first integer (the score).
+  
   Args:
-    output: Output string from search_tfidf.py
-
+    output (str): Output from search_tfidf.py
+    
   Returns:
-    Integer score (0-100)
-
+    int: TF-IDF score (0-100)
+    
   Raises:
     ValueError: If output doesn't match expected format
   """
-  if not output:
-    raise ValueError("Empty output - cannot parse score")
-
-  output = output.strip()
-
-  # Split on whitespace and get first token
-  parts = output.split()
-
-  if not parts:
-    raise ValueError("Empty output after stripping - cannot parse score")
-
+  if not output or not output.strip():
+    raise ValueError("Empty output from TF-IDF script")
+  
+  # Get first line (in case there's extra output)
+  first_line = output.strip().split('\n')[0]
+  
+  # Split by whitespace
+  parts = first_line.split()
+  
+  if len(parts) < 3:
+    raise ValueError(
+      f"Invalid TF-IDF output format. Expected: "
+      f"'<score> <id> <title>', got: '{first_line}'"
+    )
+  
   try:
     score = int(parts[0])
-  except (ValueError, IndexError) as e:
+  except ValueError:
     raise ValueError(
-      f"Invalid output format - expected integer score at start: {output}"
+      f"Invalid TF-IDF score. Expected integer, got: '{parts[0]}'"
     )
-
+  
   # Validate score range
-  if not (0 <= score <= 100):
-    logger.warning(f"Score {score} outside expected range 0-100")
-
+  if score < 0 or score > 100:
+    logger.warning(f"TF-IDF score out of expected range (0-100): {score}")
+  
   return score

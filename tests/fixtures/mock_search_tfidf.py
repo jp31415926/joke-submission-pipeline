@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
-"""Mock search_tfidf.py script for testing."""
+"""
+Mock TF-IDF search script for testing.
+Prints sample output in the expected format.
+"""
 
 print("42 1234 Test Joke Title")
