@@ -970,3 +970,162 @@ def test_format_joke_id():
 
   # Test empty string
   assert pipeline_module.format_joke_id('') == ''
+
+
+def test_rejection_logged_to_file(setup_full_pipeline):
+  """Test that rejections are logged to the appropriate log file."""
+  env = setup_full_pipeline
+
+  # Mock high duplicate score to trigger rejection
+  with patch('stage_incoming.run_external_script') as mock_extract, \
+       patch('stage_parsed.run_external_script') as mock_tfidf:
+
+    # Mock joke extraction
+    def mock_extract_fn(script_path, args, timeout=60):
+      success_dir = args[1]
+      joke_content = """Title: Duplicate Joke
+Submitter: test@example.com
+
+This is a duplicate joke."""
+      output_file = os.path.join(success_dir, 'joke.txt')
+      with open(output_file, 'w', encoding='utf-8') as f:
+        f.write(joke_content)
+      return (0, '', '')
+
+    mock_extract.side_effect = mock_extract_fn
+
+    # Mock high duplicate score (above threshold)
+    mock_tfidf.return_value = (0, '95 1234 Very Similar Joke', '')
+
+    # Create email
+    email_file = os.path.join(
+      env['pipeline_main'],
+      '01_incoming',
+      'test_email.eml'
+    )
+    with open(email_file, 'w', encoding='utf-8') as f:
+      f.write('From: test@example.com\nSubject: Test\n\nEmail')
+
+    # Run pipeline
+    pipeline_module = import_joke_pipeline()
+    pipeline_module.run_pipeline(pipeline_type="main")
+
+    # Check that rejection log was created
+    log_file = os.path.join(config.LOG_DIR, 'main_rejected_duplicate.log')
+    assert os.path.exists(log_file), f"Rejection log should exist at {log_file}"
+
+    # Read log file
+    with open(log_file, 'r') as f:
+      log_content = f.read()
+
+    # Should contain joke ID and reason
+    assert 'Duplicate detected' in log_content or 'duplicate' in log_content.lower(), \
+      "Log should contain rejection reason"
+    # Should be one line per rejection
+    lines = log_content.strip().split('\n')
+    assert len(lines) >= 1, "Should have at least one log entry"
+
+
+def test_rejection_log_separate_pipelines(setup_full_pipeline):
+  """Test that main and priority rejections go to separate log files."""
+  env = setup_full_pipeline
+
+  # Mock high duplicate score
+  with patch('stage_incoming.run_external_script') as mock_extract, \
+       patch('stage_parsed.run_external_script') as mock_tfidf:
+
+    def mock_extract_fn(script_path, args, timeout=60):
+      success_dir = args[1]
+      joke_content = """Title: Duplicate Joke
+Submitter: test@example.com
+
+This is a duplicate joke."""
+      output_file = os.path.join(success_dir, 'joke.txt')
+      with open(output_file, 'w', encoding='utf-8') as f:
+        f.write(joke_content)
+      return (0, '', '')
+
+    mock_extract.side_effect = mock_extract_fn
+    mock_tfidf.return_value = (0, '95 1234 Very Similar Joke', '')
+
+    # Create email in main pipeline
+    main_email = os.path.join(
+      env['pipeline_main'],
+      '01_incoming',
+      'main_email.eml'
+    )
+    with open(main_email, 'w', encoding='utf-8') as f:
+      f.write('From: main@example.com\nSubject: Main\n\nMain')
+
+    # Create email in priority pipeline
+    priority_email = os.path.join(
+      env['pipeline_priority'],
+      '01_incoming',
+      'priority_email.eml'
+    )
+    with open(priority_email, 'w', encoding='utf-8') as f:
+      f.write('From: priority@example.com\nSubject: Priority\n\nPriority')
+
+    # Run pipeline
+    pipeline_module = import_joke_pipeline()
+    pipeline_module.run_pipeline(pipeline_type="both")
+
+    # Check that separate log files exist
+    main_log = os.path.join(config.LOG_DIR, 'main_rejected_duplicate.log')
+    pri_log = os.path.join(config.LOG_DIR, 'pri_rejected_duplicate.log')
+
+    assert os.path.exists(main_log), "Main rejection log should exist"
+    assert os.path.exists(pri_log), "Priority rejection log should exist"
+
+    # Both should have content
+    with open(main_log, 'r') as f:
+      main_content = f.read()
+    with open(pri_log, 'r') as f:
+      pri_content = f.read()
+
+    assert len(main_content) > 0, "Main log should have content"
+    assert len(pri_content) > 0, "Priority log should have content"
+
+
+def test_rejection_log_newlines_replaced(setup_full_pipeline):
+  """Test that newlines in rejection reasons are replaced with spaces."""
+  env = setup_full_pipeline
+
+  # Create a test file in parsed stage
+  joke_file = os.path.join(
+    env['pipeline_main'],
+    '02_parsed',
+    'test_joke.txt'
+  )
+  headers = {
+    'Joke-ID': '12345678-1234-1234-1234-123456789012',
+    'Title': 'Test Joke',
+    'Submitter': 'test@example.com',
+    'Pipeline-Stage': '02_parsed'
+  }
+  write_joke_file(joke_file, headers, 'Test content')
+
+  # Mock to return a rejection reason with newlines
+  with patch('stage_parsed.run_external_script') as mock_tfidf:
+    mock_tfidf.return_value = (0, '95 1234 Very Similar Joke', '')
+
+    # Run pipeline
+    pipeline_module = import_joke_pipeline()
+    pipeline_module.run_pipeline(pipeline_type="main", stage_only="parsed")
+
+    # Check rejection log
+    log_file = os.path.join(config.LOG_DIR, 'main_rejected_duplicate.log')
+    assert os.path.exists(log_file)
+
+    with open(log_file, 'r') as f:
+      log_content = f.read()
+
+    # Should be a single line (no embedded newlines from reason)
+    lines = log_content.strip().split('\n')
+    # Each line should have joke ID and reason
+    for line in lines:
+      parts = line.split(' ', 1)
+      assert len(parts) == 2, "Each line should have joke_id and reason"
+      joke_id, reason = parts
+      # Reason should not contain literal newlines
+      assert '\n' not in reason, "Reason should not contain newlines"

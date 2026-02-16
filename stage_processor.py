@@ -260,5 +260,43 @@ class StageProcessor(ABC):
         atomic_write(filepath, headers, content)
             
         atomic_move(filepath, final_reject_dir)
-        
+
+        # Log rejection to failure log file
+        self._log_rejection(filepath, joke_id, reason)
+
         self.logger.info(f"Moved rejected file from {filepath} to {final_reject_dir} (Joke-ID: {joke_id}). Reason: {reason}")
+
+    def _log_rejection(self, filepath: str, joke_id: str, reason: str):
+        """
+        Log rejection to the appropriate failure log file.
+
+        Args:
+            filepath: Path to the file being rejected
+            joke_id: Joke ID
+            reason: Rejection reason
+        """
+        # Determine pipeline (main or pri)
+        if self.config.PIPELINE_PRIORITY in filepath:
+            pipeline = 'pri'
+        else:
+            pipeline = 'main'
+
+        # Determine reject stage name from self.reject_stage
+        # Extract just the stage name (e.g., "duplicate" from "51_rejected_duplicate")
+        stage_name = self.reject_stage.split('_', 1)[1] if '_' in self.reject_stage else self.reject_stage
+
+        # Build log filename: logs/main_reject_duplicate.log
+        log_filename = f"{pipeline}_{stage_name}.log"
+        log_filepath = os.path.join(self.config.LOG_DIR, log_filename)
+
+        # Replace newlines in reason with spaces
+        clean_reason = reason.replace('\n', ' ').replace('\r', ' ')
+
+        # Write log entry: <joke_id> <reason>
+        try:
+            os.makedirs(self.config.LOG_DIR, exist_ok=True)
+            with open(log_filepath, 'a', encoding='utf-8') as f:
+                f.write(f"{joke_id} {clean_reason}\n")
+            self.logger.debug(f"Logged rejection to {log_filepath}: {joke_id}")
+        except Exception as e:
+            self.logger.warning(f"Failed to write rejection log: {e} (Joke-ID: {joke_id})")
