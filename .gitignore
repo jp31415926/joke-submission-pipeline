@@ -1,5 +1,4 @@
 # project specific patterns
-emails/
 jokematch2/data/*
 
 # Byte-compiled / optimized / DLL files

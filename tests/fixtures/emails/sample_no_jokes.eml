@@ -1,0 +1,17 @@
+Return-Path: <admin@yahoogroups.com>
+Delivered-To: jokes@example.com
+Received: from mail.example.com
+	by mail.example.com with LMTP
+	id abc789
+	(envelope-from <admin@yahoogroups.com>)
+	for <jokes@example.com>; Mon, 01 Jan 2024 14:00:00 +0000
+From: "Administrator" <admin@yahoogroups.com>
+To: good-clean-fun@yahoogroups.com
+Subject: Administrative Notice
+Date: Mon, 01 Jan 2024 14:00:00 +0000
+Message-ID: <abc789@yahoogroups.com>
+
+This is an administrative email with no jokes.
+
+Please update your subscription preferences at the following URL:
+http://example.com/preferences
