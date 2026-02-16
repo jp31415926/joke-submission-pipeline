@@ -1,0 +1,11 @@
+Joke-ID: ffffffff-aaaa-bbbb-cccc-dddddddddddd
+Title: The Mathematician's Garden
+Submitter: test@example.com
+Source-Email-File: test_email4.txt
+Pipeline-Stage: 04_clean_checked
+Duplicate-Score: 20
+Duplicate-Threshold: 70
+Cleanliness-Status: PASS
+Cleanliness-Confidence: 95
+
+A mathematician planted a garden. When asked why all the plants were in perfect rows and columns, he replied, "I wanted to see if I could grow square roots."

@@ -1,0 +1,11 @@
+Joke-ID: aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee
+Title: Computer Problems
+Submitter: test@example.com
+Source-Email-File: test_email3.txt
+Pipeline-Stage: 04_clean_checked
+Duplicate-Score: 15
+Duplicate-Threshold: 70
+Cleanliness-Status: PASS
+Cleanliness-Confidence: 90
+
+why did the computer go to the doctor    because it had a virus!!! and it needed help right away   the doctor said take two tablets and call me in the morning
