@@ -6,6 +6,39 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a joke submission pipeline that processes joke submissions from emails through multiple automated stages before reaching manual review. It's a file-based state machine that uses LLMs (via Ollama) and TF-IDF for duplicate detection.
 
+## Git Workflow
+
+**IMPORTANT: Claude should automatically commit changes to version control.**
+
+When making code changes, bug fixes, or implementing features:
+1. **Always create a git commit** after completing a logical unit of work
+2. **Use descriptive commit messages** that explain what was changed and why
+3. **Stage relevant files** - prefer adding specific files by name rather than using `git add -A` or `git add .`
+4. **Include co-authorship** - all commit messages should end with:
+   ```
+   Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+   ```
+
+Commit message guidelines:
+- Start with a verb in imperative mood (e.g., "Add", "Fix", "Update", "Refactor")
+- Be specific about what changed (e.g., "Fix error handling in stage_parsed.py" not "Fix bug")
+- Keep the first line under 70 characters
+- Add additional context in the body if needed
+
+Example workflow:
+```bash
+git add src/stage_parsed.py tests/test_stage_parsed.py
+git commit -m "$(cat <<'EOF'
+Fix duplicate detection to handle edge cases
+
+Updated stage_parsed.py to properly handle empty TF-IDF results
+and added corresponding test cases.
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+EOF
+)"
+```
+
 ## Commands
 
 ### Setup
