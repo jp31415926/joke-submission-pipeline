@@ -107,7 +107,7 @@ class StageProcessor(ABC):
     def _process_with_retry(self, filepath: str):
         """
         Process a file with retry logic.
-        
+
         Args:
             filepath: Path to the joke file
         """
@@ -118,12 +118,29 @@ class StageProcessor(ABC):
             joke_id = headers.get('Joke-ID', 'unknown')
         except Exception as e:
             self.logger.error(f"Could not parse headers from {filepath}: {e}")
-        
+
         self.logger.info(f"Starting to process file {filepath} (Joke-ID: {joke_id})")
-        
+
+        # Move file to tmp/ directory to prevent concurrent processing
+        input_dir = os.path.dirname(filepath)
+        tmp_dir = os.path.join(input_dir, 'tmp')
+        os.makedirs(tmp_dir, exist_ok=True)
+
+        filename = os.path.basename(filepath)
+        tmp_filepath = os.path.join(tmp_dir, filename)
+
+        try:
+            shutil.move(filepath, tmp_filepath)
+            self.logger.debug(f"Moved file to tmp for processing: {tmp_filepath} (Joke-ID: {joke_id})")
+            filepath = tmp_filepath  # Update filepath to tmp location
+        except Exception as e:
+            self.logger.error(f"Failed to move file to tmp directory: {e} (Joke-ID: {joke_id})")
+            # If we can't move to tmp, we can't safely process this file
+            return
+
         retries = 0
         max_retries = self.config.MAX_RETRIES
-        
+
         while retries <= max_retries:
             try:
                 # Read the file

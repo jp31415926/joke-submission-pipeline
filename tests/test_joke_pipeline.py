@@ -702,3 +702,132 @@ def test_stage_processor_continues_without_all_stop(setup_full_pipeline):
   finally:
     # Restore original ALL_STOP path
     config.ALL_STOP = original_all_stop
+
+
+def test_files_moved_to_tmp_during_processing(setup_full_pipeline):
+  """Test that files are moved to tmp/ directory while being processed."""
+  env = setup_full_pipeline
+
+  # Create a test file
+  joke_file = os.path.join(
+    env['pipeline_main'],
+    '02_parsed',
+    'test_joke.txt'
+  )
+  headers = {
+    'Joke-ID': '12345678-1234-1234-1234-123456789012',
+    'Title': 'Test Joke',
+    'Submitter': 'test@example.com',
+    'Pipeline-Stage': '02_parsed'
+  }
+  write_joke_file(joke_file, headers, 'Test content')
+
+  # Verify file exists in stage directory
+  assert os.path.exists(joke_file)
+
+  # Track when processing starts
+  processing_started = [False]
+  tmp_file_existed = [False]
+
+  # Mock TF-IDF to check tmp location during processing
+  original_run_external_script = None
+  try:
+    import stage_parsed
+    original_run_external_script = stage_parsed.run_external_script
+
+    def mock_tfidf_check(*args, **kwargs):
+      processing_started[0] = True
+      # Check if file is in tmp directory during processing
+      tmp_file = os.path.join(
+        env['pipeline_main'],
+        '02_parsed',
+        'tmp',
+        'test_joke.txt'
+      )
+      tmp_file_existed[0] = os.path.exists(tmp_file)
+
+      # Also verify file is NOT in the original location
+      original_file = os.path.join(
+        env['pipeline_main'],
+        '02_parsed',
+        'test_joke.txt'
+      )
+      original_exists = os.path.exists(original_file)
+
+      # During processing, file should be in tmp, not in original location
+      if tmp_file_existed[0] and not original_exists:
+        pass  # This is correct
+      else:
+        raise AssertionError(
+          f"File should be in tmp during processing. "
+          f"tmp exists: {tmp_file_existed[0]}, original exists: {original_exists}"
+        )
+
+      return (0, '25 1234 Different Joke', '')
+
+    stage_parsed.run_external_script = mock_tfidf_check
+
+    # Run parsed stage
+    pipeline_module = import_joke_pipeline()
+    pipeline_module.run_pipeline(pipeline_type="main", stage_only="parsed")
+
+    # Verify processing occurred
+    assert processing_started[0], "Processing should have started"
+    assert tmp_file_existed[0], "File should have been in tmp during processing"
+
+    # After processing, file should be in output directory, not tmp
+    tmp_file = os.path.join(
+      env['pipeline_main'],
+      '02_parsed',
+      'tmp',
+      'test_joke.txt'
+    )
+    assert not os.path.exists(tmp_file), "File should not remain in tmp after processing"
+
+    # File should be in output directory
+    deduped_dir = os.path.join(env['pipeline_main'], '03_deduped')
+    deduped_files = [f for f in os.listdir(deduped_dir)
+                     if f.endswith('.txt')]
+    assert len(deduped_files) == 1, "File should be in output directory"
+
+  finally:
+    # Restore original function
+    if original_run_external_script:
+      stage_parsed.run_external_script = original_run_external_script
+
+
+def test_tmp_directory_created_if_missing(setup_full_pipeline):
+  """Test that tmp/ directory is created if it doesn't exist."""
+  env = setup_full_pipeline
+
+  # Ensure tmp directory doesn't exist
+  tmp_dir = os.path.join(env['pipeline_main'], '02_parsed', 'tmp')
+  if os.path.exists(tmp_dir):
+    shutil.rmtree(tmp_dir)
+
+  assert not os.path.exists(tmp_dir)
+
+  # Create a test file
+  joke_file = os.path.join(
+    env['pipeline_main'],
+    '02_parsed',
+    'test_joke.txt'
+  )
+  headers = {
+    'Joke-ID': '12345678-1234-1234-1234-123456789012',
+    'Title': 'Test Joke',
+    'Submitter': 'test@example.com',
+    'Pipeline-Stage': '02_parsed'
+  }
+  write_joke_file(joke_file, headers, 'Test content')
+
+  # Mock TF-IDF
+  with patch('stage_parsed.run_external_script') as mock_tfidf:
+    mock_tfidf.return_value = (0, '25 1234 Different Joke', '')
+
+    # Run parsed stage
+    pipeline_module = import_joke_pipeline()
+    pipeline_module.run_pipeline(pipeline_type="main", stage_only="parsed")
+
+    # tmp directory should have been created
+    assert os.path.exists(tmp_dir), "tmp directory should be created"
