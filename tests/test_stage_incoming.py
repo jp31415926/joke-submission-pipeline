@@ -17,8 +17,8 @@ from file_utils import parse_joke_file
 import config
 
 
-class TestRunner:
-    """Simple test runner."""
+class SimpleTestRunner:
+    """Simple test runner (named to avoid pytest collection)."""
     
     def __init__(self):
         self.passed = 0
@@ -295,7 +295,7 @@ class TestRunner:
 
 def main():
     """Run all tests."""
-    runner = TestRunner()
+    runner = SimpleTestRunner()
     
     print("Running Stage Incoming Tests")
     print("=" * 60)
