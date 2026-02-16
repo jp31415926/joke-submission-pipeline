@@ -221,6 +221,7 @@ To get to the other side!
 * **Location**: Path specified in `config.py` (config.SEARCH_TFIDF)
 * **Invocation**: `search_tfidf.py -1 <joke_file>`
 * **Input**: Single joke file path
+  - Joke file must contain the joke text, no headers
 * **Output**: Single line to stdout like: `91 9278 A Meaningful New Year's Gesture`
   - First integer (0-100) is match score
   - Remaining text is details about matched joke (ignore)
