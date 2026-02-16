@@ -430,3 +430,133 @@ def test_empty_pipeline(setup_full_pipeline):
 
   # Should still succeed (nothing to process)
   assert success
+
+
+def test_status_with_missing_files(setup_full_pipeline):
+  """Test that status handles files being deleted during execution."""
+  env = setup_full_pipeline
+  pipeline_module = import_joke_pipeline()
+
+  # Create some test files
+  for i in range(5):
+    joke_file = os.path.join(
+      env['pipeline_main'],
+      '02_parsed',
+      f'joke_{i}.txt'
+    )
+    headers = {
+      'Joke-ID': f'12345678-1234-1234-1234-12345678901{i}',
+      'Title': f'Test Joke {i}',
+      'Submitter': 'test@example.com',
+      'Pipeline-Stage': '02_parsed'
+    }
+    write_joke_file(joke_file, headers, f'Content {i}')
+
+  # Mock os.path.getmtime to simulate file deletion for some files
+  original_getmtime = os.path.getmtime
+  call_count = [0]
+
+  def mock_getmtime(path):
+    call_count[0] += 1
+    # Simulate file deletion on every other call
+    if call_count[0] % 2 == 0:
+      raise FileNotFoundError(f"File not found: {path}")
+    return original_getmtime(path)
+
+  with patch('os.path.getmtime', side_effect=mock_getmtime):
+    # Should not raise an exception
+    count, oldest = pipeline_module.get_directory_status(
+      os.path.join(env['pipeline_main'], '02_parsed')
+    )
+
+    # Should still return some count (files that weren't "deleted")
+    assert count >= 0
+
+
+def test_status_with_inaccessible_directory(setup_full_pipeline):
+  """Test that status handles inaccessible directories gracefully."""
+  env = setup_full_pipeline
+  pipeline_module = import_joke_pipeline()
+
+  # Test with non-existent directory
+  count, oldest = pipeline_module.get_directory_status('/nonexistent/path')
+  assert count == 0
+  assert oldest is None
+
+  # Test with directory that becomes inaccessible
+  test_dir = os.path.join(env['pipeline_main'], '02_parsed')
+
+  with patch('os.listdir', side_effect=PermissionError("Access denied")):
+    count, oldest = pipeline_module.get_directory_status(test_dir)
+    assert count == 0
+    assert oldest is None
+
+
+def test_show_status_with_missing_tmp_dirs(setup_full_pipeline):
+  """Test that show_status handles missing or inaccessible tmp directories."""
+  env = setup_full_pipeline
+  pipeline_module = import_joke_pipeline()
+
+  # Create some test files in regular directories
+  joke_file = os.path.join(
+    env['pipeline_main'],
+    '02_parsed',
+    'joke_1.txt'
+  )
+  headers = {
+    'Joke-ID': '12345678-1234-1234-1234-123456789012',
+    'Title': 'Test Joke',
+    'Submitter': 'test@example.com',
+    'Pipeline-Stage': '02_parsed'
+  }
+  write_joke_file(joke_file, headers, 'Content')
+
+  # Mock os.listdir to fail for tmp directories
+  original_listdir = os.listdir
+
+  def mock_listdir(path):
+    if 'tmp' in path:
+      raise FileNotFoundError("Tmp directory deleted")
+    return original_listdir(path)
+
+  with patch('os.listdir', side_effect=mock_listdir):
+    # Should not raise an exception
+    try:
+      pipeline_module.show_status()
+      status_works = True
+    except Exception:
+      status_works = False
+
+    assert status_works
+
+
+def test_command_line_status(setup_full_pipeline):
+  """Test --status command line flag."""
+  env = setup_full_pipeline
+
+  # Create a test file
+  joke_file = os.path.join(
+    env['pipeline_main'],
+    '02_parsed',
+    'joke_1.txt'
+  )
+  headers = {
+    'Joke-ID': '12345678-1234-1234-1234-123456789012',
+    'Title': 'Test Joke',
+    'Submitter': 'test@example.com',
+    'Pipeline-Stage': '02_parsed'
+  }
+  write_joke_file(joke_file, headers, 'Content')
+
+  # Run status command
+  result = subprocess.run(
+    ['python3', 'joke-pipeline.py', '--status'],
+    capture_output=True,
+    text=True,
+    cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+  )
+
+  # Should succeed
+  assert result.returncode == 0
+  # Should contain status information
+  assert 'Pipeline Status' in result.stdout or 'Stage' in result.stdout

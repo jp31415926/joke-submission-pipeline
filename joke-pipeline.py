@@ -37,27 +37,41 @@ def get_directory_status(directory_path: str) -> Tuple[int, Optional[float]]:
   if not os.path.exists(directory_path):
     return 0, None
 
-  # Check if this is incoming or rejected_parse (both contain .eml files)
-  # Otherwise look for .txt files
-  is_email_stage = (directory_path.endswith('01_incoming') or
-                    directory_path.endswith('50_rejected_parse'))
+  try:
+    # Check if this is incoming or rejected_parse (both contain .eml files)
+    # Otherwise look for .txt files
+    is_email_stage = (directory_path.endswith('01_incoming') or
+                      directory_path.endswith('50_rejected_parse'))
 
-  if is_email_stage:
-    files = [f for f in os.listdir(directory_path)
-             if f.endswith('.eml') and not f.startswith('.')]
-  else:
-    files = [f for f in os.listdir(directory_path)
-             if f.endswith('.txt') and not f.startswith('.')]
+    if is_email_stage:
+      files = [f for f in os.listdir(directory_path)
+               if f.endswith('.eml') and not f.startswith('.')]
+    else:
+      files = [f for f in os.listdir(directory_path)
+               if f.endswith('.txt') and not f.startswith('.')]
 
-  count = len(files)
+    count = len(files)
 
-  oldest_time = None
-  if files:
-    oldest_file = min(files, key=lambda f: os.path.getmtime(
-      os.path.join(directory_path, f)))
-    oldest_time = os.path.getmtime(os.path.join(directory_path, oldest_file))
+    oldest_time = None
+    if files:
+      # Find oldest file, handling cases where files may be moved/deleted
+      # during execution
+      for candidate_file in sorted(files):
+        try:
+          file_path = os.path.join(directory_path, candidate_file)
+          mtime = os.path.getmtime(file_path)
+          if oldest_time is None or mtime < oldest_time:
+            oldest_time = mtime
+        except (FileNotFoundError, OSError):
+          # File was moved or deleted, skip it
+          count -= 1
+          continue
 
-  return count, oldest_time
+    return count, oldest_time
+
+  except (FileNotFoundError, OSError, PermissionError):
+    # Directory was moved/deleted or is inaccessible
+    return 0, None
 
 
 def format_age(timestamp: Optional[float]) -> str:
@@ -152,12 +166,21 @@ def show_status() -> None:
     main_tmp_dir = os.path.join(config.PIPELINE_MAIN, stage_dir, 'tmp')
     priority_tmp_dir = os.path.join(config.PIPELINE_PRIORITY, stage_dir, 'tmp')
 
-    if os.path.exists(main_tmp_dir):
-      main_tmp += len([f for f in os.listdir(main_tmp_dir)
-                       if f.endswith('.txt')])
-    if os.path.exists(priority_tmp_dir):
-      priority_tmp += len([f for f in os.listdir(priority_tmp_dir)
-                           if f.endswith('.txt')])
+    try:
+      if os.path.exists(main_tmp_dir):
+        main_tmp += len([f for f in os.listdir(main_tmp_dir)
+                         if f.endswith('.txt')])
+    except (FileNotFoundError, OSError, PermissionError):
+      # Directory was moved/deleted or is inaccessible
+      pass
+
+    try:
+      if os.path.exists(priority_tmp_dir):
+        priority_tmp += len([f for f in os.listdir(priority_tmp_dir)
+                             if f.endswith('.txt')])
+    except (FileNotFoundError, OSError, PermissionError):
+      # Directory was moved/deleted or is inaccessible
+      pass
 
   # Print status
   print("Joke Pipeline Status")
