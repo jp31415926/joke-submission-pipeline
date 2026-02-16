@@ -386,7 +386,7 @@ def test_preserves_title_and_submitter(setup_test_environment):
     """Test that Title and Submitter from joke-extract.py are preserved."""
     env = setup_test_environment
     
-    # Copy test email
+    # Copy test email - use filename that mock_joke_extract.py recognizes
     fixture_email = os.path.join(
         os.path.dirname(__file__),
         "fixtures",
@@ -396,7 +396,7 @@ def test_preserves_title_and_submitter(setup_test_environment):
     test_email = os.path.join(
         env['pipeline_main'],
         "01_incoming",
-        "preserve_test.eml"
+        "preserve_single_joke_test.eml"  # Include 'single_joke' for mock to recognize
     )
     shutil.copy(fixture_email, test_email)
     

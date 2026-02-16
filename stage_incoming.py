@@ -114,7 +114,8 @@ class IncomingProcessor(StageProcessor):
             for extracted_file in extracted_files:
                 self._process_extracted_joke(
                     os.path.join(success_dir, extracted_file),
-                    email_filename
+                    email_filename,
+                    filepath  # Pass the original email filepath
                 )
             
             # Return success
@@ -129,13 +130,14 @@ class IncomingProcessor(StageProcessor):
             except Exception as e:
                 self.logger.warning(f"Failed to clean up temp directory {temp_dir}: {e}")
     
-    def _process_extracted_joke(self, extracted_filepath: str, email_filename: str):
+    def _process_extracted_joke(self, extracted_filepath: str, email_filename: str, original_email_path: str):
         """
         Process a single extracted joke file.
         
         Args:
             extracted_filepath: Path to the extracted joke file
             email_filename: Name of the source email file
+            original_email_path: Original path of the email file (to determine pipeline)
         """
         # Read the extracted joke
         headers, content = parse_joke_file(extracted_filepath)
@@ -149,10 +151,8 @@ class IncomingProcessor(StageProcessor):
         updated_headers['Source-Email-File'] = email_filename
         updated_headers['Pipeline-Stage'] = self.output_stage
         
-        # Determine output directory (check priority first)
-        if os.path.dirname(os.path.dirname(extracted_filepath)).startswith(
-            config.PIPELINE_PRIORITY
-        ):
+        # Determine output directory based on original email path
+        if original_email_path.startswith(config.PIPELINE_PRIORITY):
             output_dir = os.path.join(config.PIPELINE_PRIORITY, self.output_stage)
         else:
             output_dir = os.path.join(config.PIPELINE_MAIN, self.output_stage)
