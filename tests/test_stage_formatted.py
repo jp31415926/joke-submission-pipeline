@@ -8,6 +8,7 @@ import sys
 import shutil
 import tempfile
 import pytest
+import json
 from unittest.mock import Mock, patch
 
 # Add parent directory to path for imports
@@ -56,15 +57,13 @@ def mock_ollama_one_category():
   """Mock Ollama client that returns 1 category."""
   with patch('stage_formatted.OllamaClient') as mock_client_class:
     mock_client = Mock()
-    mock_client.generate.return_value = """
-Categories: Puns
-Confidence: 85
-Reasoning: This joke uses wordplay with financial terms
-"""
+    mock_client.system_prompt = 'You are a joke categorizer.'
+    mock_client.user_prompt_template = 'Categorize: {content}'
+    mock_client.generate.return_value = json.dumps({"categories": ["Puns"], "confidence": 85, "reasoning": "This joke uses wordplay with financial terms"})
     mock_client.parse_structured_response.return_value = {
-      'Categories': 'Puns',
-      'Confidence': '85',
-      'Reasoning': 'This joke uses wordplay with financial terms'
+      'categories': ['Puns'],
+      'confidence': '85',
+      'reasoning': 'This joke uses wordplay with financial terms'
     }
     mock_client.extract_confidence.return_value = 85
     mock_client_class.return_value = mock_client
@@ -76,15 +75,13 @@ def mock_ollama_two_categories():
   """Mock Ollama client that returns 2 categories."""
   with patch('stage_formatted.OllamaClient') as mock_client_class:
     mock_client = Mock()
-    mock_client.generate.return_value = """
-Categories: Animals, Puns
-Confidence: 90
-Reasoning: Combines animal subject with wordplay
-"""
+    mock_client.system_prompt = 'You are a joke categorizer.'
+    mock_client.user_prompt_template = 'Categorize: {content}'
+    mock_client.generate.return_value = json.dumps({"categories": ["Animals", "Puns"], "confidence": 90, "reasoning": "Combines animal subject with wordplay"})
     mock_client.parse_structured_response.return_value = {
-      'Categories': 'Animals, Puns',
-      'Confidence': '90',
-      'Reasoning': 'Combines animal subject with wordplay'
+      'categories': ['Animals', 'Puns'],
+      'confidence': '90',
+      'reasoning': 'Combines animal subject with wordplay'
     }
     mock_client.extract_confidence.return_value = 90
     mock_client_class.return_value = mock_client
@@ -96,15 +93,13 @@ def mock_ollama_three_categories():
   """Mock Ollama client that returns 3 categories."""
   with patch('stage_formatted.OllamaClient') as mock_client_class:
     mock_client = Mock()
-    mock_client.generate.return_value = """
-Categories: Animals, Puns, Food
-Confidence: 88
-Reasoning: Contains animal theme, wordplay, and food reference
-"""
+    mock_client.system_prompt = 'You are a joke categorizer.'
+    mock_client.user_prompt_template = 'Categorize: {content}'
+    mock_client.generate.return_value = json.dumps({"categories": ["Animals", "Puns", "Food"], "confidence": 88, "reasoning": "Contains animal theme, wordplay, and food reference"})
     mock_client.parse_structured_response.return_value = {
-      'Categories': 'Animals, Puns, Food',
-      'Confidence': '88',
-      'Reasoning': 'Contains animal theme, wordplay, and food reference'
+      'categories': ['Animals', 'Puns', 'Food'],
+      'confidence': '88',
+      'reasoning': 'Contains animal theme, wordplay, and food reference'
     }
     mock_client.extract_confidence.return_value = 88
     mock_client_class.return_value = mock_client
@@ -116,15 +111,14 @@ def mock_ollama_invalid_category():
   """Mock Ollama client that returns invalid category."""
   with patch('stage_formatted.OllamaClient') as mock_client_class:
     mock_client = Mock()
-    mock_client.generate.return_value = """
-Categories: InvalidCategory
-Confidence: 85
-Reasoning: This is not a valid category
-"""
+    mock_client.system_prompt = 'You are a joke categorizer.'
+    mock_client.user_prompt_template = 'Categorize: {content}'
+    import json as json_lib
+    mock_client.generate.return_value = json_lib.dumps({"categories": ["InvalidCategory"], "confidence": 85, "reasoning": "This is not a valid category"})
     mock_client.parse_structured_response.return_value = {
-      'Categories': 'InvalidCategory',
-      'Confidence': '85',
-      'Reasoning': 'This is not a valid category'
+      'categories': ['InvalidCategory'],
+      'confidence': '85',
+      'reasoning': 'This is not a valid category'
     }
     mock_client.extract_confidence.return_value = 85
     mock_client_class.return_value = mock_client
@@ -136,15 +130,14 @@ def mock_ollama_too_many_categories():
   """Mock Ollama client that returns too many categories."""
   with patch('stage_formatted.OllamaClient') as mock_client_class:
     mock_client = Mock()
-    mock_client.generate.return_value = """
-Categories: Animals, Puns, Food, Technology
-Confidence: 85
-Reasoning: Too many categories assigned
-"""
+    mock_client.system_prompt = 'You are a joke categorizer.'
+    mock_client.user_prompt_template = 'Categorize: {content}'
+    import json as json_lib
+    mock_client.generate.return_value = json_lib.dumps({"categories": ["Animals", "Puns", "Food", "Technology"], "confidence": 85, "reasoning": "Too many categories assigned"})
     mock_client.parse_structured_response.return_value = {
-      'Categories': 'Animals, Puns, Food, Technology',
-      'Confidence': '85',
-      'Reasoning': 'Too many categories assigned'
+      'categories': ['Animals', 'Puns', 'Food', 'Technology'],
+      'confidence': '85',
+      'reasoning': 'Too many categories assigned'
     }
     mock_client.extract_confidence.return_value = 85
     mock_client_class.return_value = mock_client
@@ -156,15 +149,14 @@ def mock_ollama_low_confidence():
   """Mock Ollama client that returns low confidence."""
   with patch('stage_formatted.OllamaClient') as mock_client_class:
     mock_client = Mock()
-    mock_client.generate.return_value = """
-Categories: Puns
-Confidence: 50
-Reasoning: Not very confident about this categorization
-"""
+    mock_client.system_prompt = 'You are a joke categorizer.'
+    mock_client.user_prompt_template = 'Categorize: {content}'
+    import json as json_lib
+    mock_client.generate.return_value = json_lib.dumps({"categories": ["Puns"], "confidence": 50, "reasoning": "Not very confident about this categorization"})
     mock_client.parse_structured_response.return_value = {
-      'Categories': 'Puns',
-      'Confidence': '50',
-      'Reasoning': 'Not very confident about this categorization'
+      'categories': ['Puns'],
+      'confidence': '50',
+      'reasoning': 'Not very confident about this categorization'
     }
     mock_client.extract_confidence.return_value = 50
     mock_client_class.return_value = mock_client
@@ -395,15 +387,13 @@ def test_case_insensitive_category_matching(setup_test_environment):
   # Mock LLM to return lowercase category
   with patch('stage_formatted.OllamaClient') as mock_client_class:
     mock_client = Mock()
-    mock_client.generate.return_value = """
-Categories: puns
-Confidence: 85
-Reasoning: Testing case insensitivity
-"""
+    mock_client.system_prompt = 'You are a joke categorizer.'
+    mock_client.user_prompt_template = 'Categorize: {content}'
+    mock_client.generate.return_value = json.dumps({"categories": ["puns"], "confidence": 85, "reasoning": "Testing case insensitivity"})
     mock_client.parse_structured_response.return_value = {
-      'Categories': 'puns',
-      'Confidence': '85',
-      'Reasoning': 'Testing case insensitivity'
+      'categories': ['puns'],
+      'confidence': '85',
+      'reasoning': 'Testing case insensitivity'
     }
     mock_client.extract_confidence.return_value = 85
     mock_client_class.return_value = mock_client

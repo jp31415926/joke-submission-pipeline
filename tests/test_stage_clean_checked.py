@@ -56,15 +56,13 @@ def mock_ollama_high_confidence():
   """Mock Ollama client that returns formatted joke with high confidence."""
   with patch('stage_clean_checked.OllamaClient') as mock_client_class:
     mock_client = Mock()
-    mock_client.generate.return_value = """
-Formatted-Joke: Why did the computer go to the doctor? Because it had a virus! The doctor said, "Take two tablets and call me in the morning."
-Confidence: 85
-Changes: Fixed capitalization, added proper punctuation, improved sentence structure
-"""
+    mock_client.system_prompt = 'You are an editor improving joke formatting and grammar.'
+    mock_client.user_prompt_template = 'Improve the grammar of this joke: {content}'
+    mock_client.generate.return_value = '{"formatted_joke": "Why did the computer go to the doctor? Because it had a virus! The doctor said, \\"Take two tablets and call me in the morning.\\"", "confidence": 85, "changes": "Fixed capitalization, added proper punctuation, improved sentence structure"}'
     mock_client.parse_structured_response.return_value = {
-      'Formatted-Joke': 'Why did the computer go to the doctor? Because it had a virus! The doctor said, "Take two tablets and call me in the morning."',
-      'Confidence': '85',
-      'Changes': 'Fixed capitalization, added proper punctuation, improved sentence structure'
+      'formatted_joke': 'Why did the computer go to the doctor? Because it had a virus! The doctor said, "Take two tablets and call me in the morning."',
+      'confidence': '85',
+      'changes': 'Fixed capitalization, added proper punctuation, improved sentence structure'
     }
     mock_client.extract_confidence.return_value = 85
     mock_client_class.return_value = mock_client
@@ -76,15 +74,13 @@ def mock_ollama_low_confidence():
   """Mock Ollama client that returns formatted joke with low confidence."""
   with patch('stage_clean_checked.OllamaClient') as mock_client_class:
     mock_client = Mock()
-    mock_client.generate.return_value = """
-Formatted-Joke: Why did the computer go to the doctor? Because it had a virus!
-Confidence: 50
-Changes: Original text was very poor quality, attempted improvements
-"""
+    mock_client.system_prompt = 'You are an editor improving joke formatting and grammar.'
+    mock_client.user_prompt_template = 'Improve the grammar of this joke: {content}'
+    mock_client.generate.return_value = '{"formatted_joke": "Why did the computer go to the doctor? Because it had a virus!", "confidence": 50, "changes": "Original text was very poor quality, attempted improvements"}'
     mock_client.parse_structured_response.return_value = {
-      'Formatted-Joke': 'Why did the computer go to the doctor? Because it had a virus!',
-      'Confidence': '50',
-      'Changes': 'Original text was very poor quality, attempted improvements'
+      'formatted_joke': 'Why did the computer go to the doctor? Because it had a virus!',
+      'confidence': '50',
+      'changes': 'Original text was very poor quality, attempted improvements'
     }
     mock_client.extract_confidence.return_value = 50
     mock_client_class.return_value = mock_client
@@ -97,15 +93,18 @@ def mock_ollama_well_formatted():
   with patch('stage_clean_checked.OllamaClient') as mock_client_class:
     mock_client = Mock()
     formatted_text = 'A mathematician planted a garden. When asked why all the plants were in perfect rows and columns, he replied, "I wanted to see if I could grow square roots."'
-    mock_client.generate.return_value = f"""
-Formatted-Joke: {formatted_text}
-Confidence: 95
-Changes: Minimal changes needed, text was already well formatted
-"""
+    import json as json_lib
+    mock_client.system_prompt = 'You are an editor improving joke formatting and grammar.'
+    mock_client.user_prompt_template = 'Improve the grammar of this joke: {content}'
+    mock_client.generate.return_value = json_lib.dumps({
+      "formatted_joke": formatted_text,
+      "confidence": 95,
+      "changes": "Minimal changes needed, text was already well formatted"
+    })
     mock_client.parse_structured_response.return_value = {
-      'Formatted-Joke': formatted_text,
-      'Confidence': '95',
-      'Changes': 'Minimal changes needed, text was already well formatted'
+      'formatted_joke': formatted_text,
+      'confidence': '95',
+      'changes': 'Minimal changes needed, text was already well formatted'
     }
     mock_client.extract_confidence.return_value = 95
     mock_client_class.return_value = mock_client
@@ -324,16 +323,15 @@ def test_missing_formatted_joke(setup_test_environment):
   """Test handling when LLM doesn't return formatted joke."""
   env = setup_test_environment
 
-  # Mock LLM to return response without Formatted-Joke field
+  # Mock LLM to return response without formatted_joke field
   with patch('stage_clean_checked.OllamaClient') as mock_client_class:
     mock_client = Mock()
-    mock_client.generate.return_value = """
-Confidence: 85
-Changes: Some changes made
-"""
+    mock_client.system_prompt = 'You are an editor improving joke formatting and grammar.'
+    mock_client.user_prompt_template = 'Improve the grammar of this joke: {content}'
+    mock_client.generate.return_value = '{"confidence": 85, "changes": "Some changes made"}'
     mock_client.parse_structured_response.return_value = {
-      'Confidence': '85',
-      'Changes': 'Some changes made'
+      'confidence': '85',
+      'changes': 'Some changes made'
     }
     mock_client.extract_confidence.return_value = 85
     mock_client_class.return_value = mock_client
@@ -360,3 +358,68 @@ Changes: Some changes made
     headers, content = parse_joke_file(reject_file)
     assert 'Rejection-Reason' in headers
     assert 'formatted joke' in headers['Rejection-Reason'].lower()
+
+
+def test_multiline_joke_with_blank_lines(setup_test_environment):
+  """Test that multi-line jokes with blank lines are preserved correctly."""
+  env = setup_test_environment
+
+  # Mock LLM to return multi-line joke with blank lines
+  with patch('stage_clean_checked.OllamaClient') as mock_client_class:
+    mock_client = Mock()
+    multiline_joke = '''A teacher asks her class, "What do you want to be when you grow up?"
+
+Little Johnny raises his hand and says, "I want to be a millionaire, have a beautiful girlfriend, give her a Ferrari, an apartment in Paris, a mansion in Beverly Hills, a private jet to fly anywhere, an infinite Visa card, and I want to make love to her three times a day."
+
+The teacher, shocked, doesn't know what to say. She decides not to acknowledge Johnny's answer and continues with the lesson.'''
+
+    import json as json_lib
+    mock_client.system_prompt = 'You are an editor improving joke formatting and grammar.'
+    mock_client.user_prompt_template = 'Improve the grammar of this joke: {content}'
+    mock_client.generate.return_value = json_lib.dumps({
+      "formatted_joke": multiline_joke,
+      "confidence": 90,
+      "changes": "Fixed grammar and punctuation"
+    })
+    mock_client.parse_structured_response.return_value = {
+      'formatted_joke': multiline_joke,
+      'confidence': '90',
+      'changes': 'Fixed grammar and punctuation'
+    }
+    mock_client.extract_confidence.return_value = 90
+    mock_client_class.return_value = mock_client
+
+    # Copy joke to input directory
+    source_joke = os.path.join(
+      os.path.dirname(__file__),
+      'fixtures',
+      'jokes',
+      'multiline_joke.txt'
+    )
+    dest_joke = os.path.join(env['input_dir'], 'multiline_joke.txt')
+    shutil.copy(source_joke, dest_joke)
+
+    # Run processor
+    processor = CleanCheckedProcessor()
+    processor.run()
+
+    # Verify file moved to output directory
+    output_file = os.path.join(env['output_dir'], 'multiline_joke.txt')
+    assert os.path.exists(output_file)
+
+    # Verify content preserves blank lines
+    headers, content = parse_joke_file(output_file)
+
+    # Should have multiple lines
+    lines = content.split('\n')
+    assert len(lines) > 3, "Multi-line joke should have more than 3 lines"
+
+    # Should have blank lines (empty strings in the list)
+    assert '' in lines, "Multi-line joke should contain blank lines"
+
+    # Content should match what LLM returned
+    assert content == multiline_joke
+
+    # Verify it's not truncated to just first line
+    assert "Little Johnny" in content, "Content should include second paragraph"
+    assert "teacher, shocked" in content, "Content should include third paragraph"

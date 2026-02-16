@@ -56,15 +56,13 @@ def mock_ollama_pass_high_confidence():
   """Mock Ollama client that returns PASS with high confidence."""
   with patch('stage_deduped.OllamaClient') as mock_client_class:
     mock_client = Mock()
-    mock_client.generate.return_value = """
-Status: PASS
-Confidence: 95
-Reason: This is a clean, family-friendly joke
-"""
+    mock_client.system_prompt = 'You are a content moderator.'
+    mock_client.user_prompt_template = 'Evaluate: {content}'
+    mock_client.generate.return_value = '{"status": "PASS", "confidence": 95, "reason": "This is a clean, family-friendly joke"}'
     mock_client.parse_structured_response.return_value = {
-      'Status': 'PASS',
-      'Confidence': '95',
-      'Reason': 'This is a clean, family-friendly joke'
+      'status': 'PASS',
+      'confidence': '95',
+      'reason': 'This is a clean, family-friendly joke'
     }
     mock_client.extract_confidence.return_value = 95
     mock_client_class.return_value = mock_client
@@ -76,15 +74,13 @@ def mock_ollama_fail():
   """Mock Ollama client that returns FAIL."""
   with patch('stage_deduped.OllamaClient') as mock_client_class:
     mock_client = Mock()
-    mock_client.generate.return_value = """
-Status: FAIL
-Confidence: 85
-Reason: Contains inappropriate content
-"""
+    mock_client.system_prompt = 'You are a content moderator.'
+    mock_client.user_prompt_template = 'Evaluate: {content}'
+    mock_client.generate.return_value = '{"status": "FAIL", "confidence": 85, "reason": "Contains inappropriate content"}'
     mock_client.parse_structured_response.return_value = {
-      'Status': 'FAIL',
-      'Confidence': '85',
-      'Reason': 'Contains inappropriate content'
+      'status': 'FAIL',
+      'confidence': '85',
+      'reason': 'Contains inappropriate content'
     }
     mock_client.extract_confidence.return_value = 85
     mock_client_class.return_value = mock_client
@@ -96,15 +92,13 @@ def mock_ollama_low_confidence():
   """Mock Ollama client that returns PASS with low confidence."""
   with patch('stage_deduped.OllamaClient') as mock_client_class:
     mock_client = Mock()
-    mock_client.generate.return_value = """
-Status: PASS
-Confidence: 50
-Reason: Uncertain about appropriateness
-"""
+    mock_client.system_prompt = 'You are a content moderator.'
+    mock_client.user_prompt_template = 'Evaluate: {content}'
+    mock_client.generate.return_value = '{"status": "PASS", "confidence": 50, "reason": "Uncertain about appropriateness"}'
     mock_client.parse_structured_response.return_value = {
-      'Status': 'PASS',
-      'Confidence': '50',
-      'Reason': 'Uncertain about appropriateness'
+      'status': 'PASS',
+      'confidence': '50',
+      'reason': 'Uncertain about appropriateness'
     }
     mock_client.extract_confidence.return_value = 50
     mock_client_class.return_value = mock_client

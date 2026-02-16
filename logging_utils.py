@@ -11,45 +11,50 @@ from typing import Optional
 _logger = None
 
 
-def setup_logging(log_dir: str, log_level: str) -> logging.Logger:
+def setup_logging(log_dir: str, log_level: str, log_to_stdout: bool = False) -> logging.Logger:
     """
-    Setup logging configuration with file and console handlers.
-    
+    Setup logging configuration with file and optional console handlers.
+
     Args:
         log_dir (str): Directory where log files will be stored
         log_level (str): Logging level (e.g., "INFO", "DEBUG")
-        
+        log_to_stdout (bool): If True, also log to stdout (default: False)
+
     Returns:
         logging.Logger: Configured logger instance
     """
     global _logger
-    
+
     # Create log directory if it doesn't exist
     os.makedirs(log_dir, exist_ok=True)
-    
+
     # Get logger
     logger = logging.getLogger("joke_pipeline")
     logger.setLevel(getattr(logging, log_level.upper()))
-    
+
+    # Remove any existing handlers
+    logger.handlers = []
+
     # Create formatter
     formatter = logging.Formatter(
         "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
-    
-    # File handler
+
+    # File handler (always enabled)
     log_file = os.path.join(log_dir, "pipeline.log")
     file_handler = logging.FileHandler(log_file)
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
-    
-    # Console handler
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
-    
+
+    # Console handler (optional)
+    if log_to_stdout:
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(formatter)
+        logger.addHandler(console_handler)
+
     # Store reference
     _logger = logger
-    
+
     return logger
 
 

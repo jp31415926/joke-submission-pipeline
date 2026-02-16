@@ -117,45 +117,40 @@ This is a sample joke from an email."""
 
     # Mock Ollama for cleanliness check (stage_deduped)
     mock_client_deduped = Mock()
-    mock_client_deduped.generate.return_value = """
-Status: PASS
-Confidence: 90
-Reason: Clean and appropriate
-"""
+    mock_client_deduped.system_prompt = 'You are a content moderator.'
+    mock_client_deduped.user_prompt_template = 'Evaluate: {content}'
+    import json as json_lib
+    mock_client_deduped.generate.return_value = json_lib.dumps({"status": "PASS", "confidence": 90, "reason": "Clean and appropriate"})
     mock_client_deduped.parse_structured_response.return_value = {
-      'Status': 'PASS',
-      'Confidence': '90',
-      'Reason': 'Clean and appropriate'
+      'status': 'PASS',
+      'confidence': '90',
+      'reason': 'Clean and appropriate'
     }
     mock_client_deduped.extract_confidence.return_value = 90
     mock_ollama_deduped.return_value = mock_client_deduped
 
     # Mock Ollama for formatting (stage_clean_checked)
     mock_client_format = Mock()
-    mock_client_format.generate.return_value = """
-Formatted-Joke: This is a well-formatted sample joke from an email.
-Confidence: 88
-Changes: Minor punctuation improvements
-"""
+    mock_client_format.system_prompt = 'You are an editor.'
+    mock_client_format.user_prompt_template = 'Format: {content}'
+    mock_client_format.generate.return_value = json_lib.dumps({"formatted_joke": "This is a well-formatted sample joke from an email.", "confidence": 88, "changes": "Minor punctuation improvements"})
     mock_client_format.parse_structured_response.return_value = {
-      'Formatted-Joke': 'This is a well-formatted sample joke from an email.',
-      'Confidence': '88',
-      'Changes': 'Minor punctuation improvements'
+      'formatted_joke': 'This is a well-formatted sample joke from an email.',
+      'confidence': '88',
+      'changes': 'Minor punctuation improvements'
     }
     mock_client_format.extract_confidence.return_value = 88
     mock_ollama_format.return_value = mock_client_format
 
     # Mock Ollama for categorization (stage_formatted)
     mock_client_categorize = Mock()
-    mock_client_categorize.generate.return_value = """
-Categories: Clean, Observational
-Confidence: 85
-Reasoning: General clean observational humor
-"""
+    mock_client_categorize.system_prompt = 'You are a joke categorizer.'
+    mock_client_categorize.user_prompt_template = 'Categorize: {content}'
+    mock_client_categorize.generate.return_value = json_lib.dumps({"categories": ["Clean", "Observational"], "confidence": 85, "reasoning": "General clean observational humor"})
     mock_client_categorize.parse_structured_response.return_value = {
-      'Categories': 'Clean, Observational',
-      'Confidence': '85',
-      'Reasoning': 'General clean observational humor'
+      'categories': ['Clean', 'Observational'],
+      'confidence': '85',
+      'reasoning': 'General clean observational humor'
     }
     mock_client_categorize.extract_confidence.return_value = 85
     mock_ollama_categorize.return_value = mock_client_categorize
@@ -163,6 +158,8 @@ Reasoning: General clean observational humor
     # Mock Ollama for title generation (stage_categorized)
     # Not needed if title exists, but mock it anyway
     mock_client_title = Mock()
+    mock_client_title.system_prompt = 'You are a title writer.'
+    mock_client_title.user_prompt_template = 'Create title: {content}'
     mock_ollama_title.return_value = mock_client_title
 
     yield {

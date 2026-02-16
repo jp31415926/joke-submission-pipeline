@@ -16,24 +16,28 @@ logger = get_logger(__name__)
 def run_external_script(
   script_path: str,
   args: list,
-  timeout: int = 60
+  timeout: int = None
 ) -> Tuple[int, str, str]:
   """
   Execute an external script with arguments and capture output.
-  
+
   Args:
     script_path (str): Path to the script to execute
     args (list): List of arguments to pass to the script
-    timeout (int): Timeout in seconds (default: 60)
-    
+    timeout (int): Timeout in seconds (default: from config.EXTERNAL_SCRIPT_TIMEOUT)
+
   Returns:
     Tuple[int, str, str]: (return_code, stdout, stderr)
-    
+
   Raises:
     FileNotFoundError: If script_path doesn't exist
     PermissionError: If script is not executable
     subprocess.TimeoutExpired: If execution exceeds timeout
   """
+  # Use config default if timeout not specified
+  if timeout is None:
+    import config
+    timeout = config.EXTERNAL_SCRIPT_TIMEOUT
   # Verify script exists
   if not os.path.exists(script_path):
     logger.error(f"Script not found: {script_path}")

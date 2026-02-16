@@ -57,12 +57,15 @@ python3 stage_parsed.py
 ```
 
 ### External Dependencies
-- **Ollama**: Required for LLM operations. Must be running locally on port 11434 with the llama3 model
+- **Ollama**: Required for LLM operations. Must be running locally (default port 11434)
+  - Model configured in `config.py` (default: qwen3:8b)
+  - Separate configurations for each LLM stage (cleanliness, formatting, categorization, title generation)
 - **joke-extractor**: External script at `joke-extractor/joke-extract.py` for parsing email jokes
   - **Do not modify without explicit instructions**
 - **jokematch2**: TF-IDF duplicate detection system
-  - `jokematch2/build_tfidf.py`: Builds TF-IDF index
-  - `jokematch2/search_tfidf.py`: Searches for similar jokes, returns format: `<score> <id> <title>`
+  - `jokematch2/build_tfidf.py`: Builds TF-IDF index, invoked with `-a <data_dir>` option
+  - `jokematch2/search_tfidf.py`: Searches for similar jokes, invoked with `-1 -a <data_dir> <joke_file>`, returns format: `<score> <id> <title>`
+  - Data directory configured in `config.py` as `SEARCH_TFIDF_DATA_DIR`
   - **Do not modify without explicit instructions**
 
 ## Architecture
@@ -127,26 +130,52 @@ The `external_scripts.py` module provides:
 
 ### Configuration
 `config.py` is the central configuration file containing:
-- Directory paths for both pipelines
-- Stage and reject directory names
-- External script paths (JOKE_EXTRACTOR, BUILD_TFIDF, SEARCH_TFIDF)
-- Thresholds (DUPLICATE_THRESHOLD, CLEANLINESS_MIN_CONFIDENCE, etc.)
-- Ollama LLM configuration (model, API URL, parameters)
-- Valid joke categories (VALID_CATEGORIES)
-- Logging configuration
+- **Directory paths**: Both pipelines (PIPELINE_MAIN, PIPELINE_PRIORITY), stages, reject directories
+- **External script paths**:
+  - `JOKE_EXTRACTOR_DIR`, `JOKE_EXTRACTOR`
+  - `SEARCH_TFIDF_DIR`, `SEARCH_TFIDF_DATA_DIR`, `BUILD_TFIDF`, `BUILD_TFIDF_OPTIONS`, `SEARCH_TFIDF`, `SEARCH_TFIDF_OPTIONS`
+- **Timeouts**:
+  - `EXTERNAL_SCRIPT_TIMEOUT` (default: 60s for joke-extractor, TF-IDF scripts)
+  - `OLLAMA_TIMEOUT` (default: 300s for LLM API calls)
+- **Thresholds**:
+  - `DUPLICATE_THRESHOLD` (0-100 TF-IDF similarity score)
+  - `CLEANLINESS_MIN_CONFIDENCE` (0-100)
+  - `CATEGORIZATION_MIN_CONFIDENCE` (0-100)
+  - `TITLE_MIN_CONFIDENCE` (0-100)
+- **Ollama LLM configurations** (separate config for each stage):
+  - `OLLAMA_CLEANLINESS_CHECK`: Cleanliness/appropriateness checking
+  - `OLLAMA_FORMATTING`: Grammar and punctuation improvements
+  - `OLLAMA_CATEGORIZATION`: Category assignment
+  - `OLLAMA_TITLE_GENERATION`: Title generation
+  - Each contains: OLLAMA_API_URL, OLLAMA_MODEL, OLLAMA_SYSTEM_PROMPT, OLLAMA_USER_PROMPT, OLLAMA_KEEP_ALIVE, OLLAMA_OPTIONS
+  - User prompts use format strings (e.g., `{content}`, `{categories}`, `{categories_list}`)
+  - LLM responses expected in JSON format for proper multi-line handling
+- **Valid joke categories** (VALID_CATEGORIES): List of approved category names (Adult removed, not appropriate)
+- **Logging**: LOG_DIR, LOG_LEVEL (default: INFO)
 
 ### Logging
 The `logging_utils.py` module provides centralized logging:
-- `setup_logging()`: Configures file and console logging
+- `setup_logging(log_dir, log_level, log_to_stdout)`: Configures logging
+  - `log_to_stdout=False` by default (logs to file only)
+  - `log_to_stdout=True` enables both file and console output
 - `get_logger()`: Returns logger instance (auto-configures if needed)
 - All logs go to `logs/pipeline.log`
 - Joke-ID is automatically included in log messages for traceability
+- Command line options in `joke-pipeline.py`:
+  - `--log-level {DEBUG,INFO,WARNING,ERROR,CRITICAL}`: Set logging level
+  - `--log-to-stdout`: Enable console output
+  - `--verbose`: Shorthand for --log-level DEBUG
 
 ## Key Implementation Details
 
 ### Stage Implementations
 - **stage_incoming.py**: Unique stage that processes EMAIL files (not joke files), calls joke-extract.py, may produce 0 or more jokes per email
-- **stage_parsed.py**: Implements deduplication using TF-IDF via search_tfidf.py
+- **stage_parsed.py**: Implements deduplication using TF-IDF via search_tfidf.py with SEARCH_TFIDF_OPTIONS
+- **stage_deduped.py**: Cleanliness check using OLLAMA_CLEANLINESS_CHECK config, expects JSON response
+- **stage_clean_checked.py**: Formatting using OLLAMA_FORMATTING config, expects JSON response with multi-line support
+- **stage_formatted.py**: Categorization using OLLAMA_CATEGORIZATION config, expects JSON response
+- **stage_categorized.py**: Title generation (if needed) using OLLAMA_TITLE_GENERATION config, expects JSON response
+- All LLM stages use JSON response format to properly handle multi-line jokes with blank lines
 - Other stages follow similar patterns using the StageProcessor base class
 
 ### Test Fixtures

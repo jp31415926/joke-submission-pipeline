@@ -219,7 +219,9 @@ To get to the other side!
 #### search_tfidf.py
 
 * **Location**: Path specified in `config.py` (config.SEARCH_TFIDF)
-* **Invocation**: `search_tfidf.py -1 <joke_file>`
+* **Invocation**: `search_tfidf.py -1 -a <SEARCH_TFIDF_DATA_DIR> <joke_file>`
+  - `SEARCH_TFIDF_DATA_DIR` is the `data` directory inside the `jokematch2` directory
+  - `SEARCH_TFIDF_DATA_DIR` should be defined in `config.py`
 * **Input**: Single joke file path
   - Joke file must contain the joke text, no headers
 * **Output**: Single line to stdout like: `91 9278 A Meaningful New Year's Gesture`
@@ -242,7 +244,8 @@ To get to the other side!
 #### build_tfidf.py
 
 * **Location**: Path specified in `config.py` (config.BUILD_TFIDF)
-* **Invocation**: `build_tfidf.py` (no arguments)
+* **Invocation**: `build_tfidf.py -a <SEARCH_TFIDF_DATA_DIR>`
+  - `SEARCH_TFIDF_DATA_DIR` is the `data` directory inside the `jokematch2` directory
 * **Scheduled**: 3am weekdays via cron
 * **Functionality**: Builds TF-IDF vector files for search_tfidf.py to use
 * **Output**: None (stores vectors in appropriate location internally)
@@ -485,35 +488,94 @@ REJECTS = {
 }
 
 # Script paths
-JOKE_EXTRACTOR = "/path/to/joke-extractor/joke-extract.py"
-BUILD_TFIDF = "/path/to/jokematch2/build_tfidf.py"
-SEARCH_TFIDF = "/path/to/jokematch2/search_tfidf.py"
+JOKE_EXTRACTOR_DIR = "/path/to/joke-extractor"
+SEARCH_TFIDF_DIR = "/path/to/jokematch2"
+SEARCH_TFIDF_DATA_DIR = SEARCH_TFIDF_DIR + "/data"
+JOKE_EXTRACTOR = JOKE_EXTRACTOR_DIR + "/joke-extract.py"
+BUILD_TFIDF = SEARCH_TFIDF_DIR + "/build_tfidf.py"
+BUILD_TFIDF_OPTIONS = ['-a', SEARCH_TFIDF_DATA_DIR]
+SEARCH_TFIDF = SEARCH_TFIDF_DIR + "/search_tfidf.py"
+SEARCH_TFIDF_OPTIONS = ['-1','-a', SEARCH_TFIDF_DATA_DIR]
+
+# Timeouts (in seconds)
+EXTERNAL_SCRIPT_TIMEOUT = 60  # For joke-extractor, TF-IDF scripts
+OLLAMA_TIMEOUT = 300  # For LLM API calls
 
 # Thresholds
 DUPLICATE_THRESHOLD = 70  # 0-100 score
 CLEANLINESS_MIN_CONFIDENCE = 70  # 0-100
 CATEGORIZATION_MIN_CONFIDENCE = 70  # 0-100
+TITLE_MIN_CONFIDENCE = 70  # 0-100
 
-# Ollama LLM Configuration
-ollama_config = {
-    'ollama_api_url': 'http://localhost:11434/api/generate',
-    'ollama_model': 'llama3',
-    'ollama_prefix_prompt': 'You are a helpful email assistant.',
-    'ollama_think': False,
-    'ollama_stream': False,
-    'ollama_keep_alive': 0,
-    'ollama_options': {
-        'temperature': 0.7,
-        'num_ctx': 65536,
-        'repeat_penalty': 1.1,
-        'top_k': 40,
-        'top_p': 0.9,
-        'min_p': 0.0,
-        'repeat_last_n': 64,
-    }
+# Ollama LLM Configuration - Cleanliness Check
+OLLAMA_CLEANLINESS_CHECK = {
+  'OLLAMA_API_URL': 'http://localhost:11434/api/generate',
+  'OLLAMA_MODEL': 'qwen3:8b',
+  'OLLAMA_SYSTEM_PROMPT': 'You are a content moderator. Keep responses short.',
+  'OLLAMA_USER_PROMPT': '''Evaluate this joke for cleanliness:
+{content}
+
+Respond ONLY with valid JSON:
+{{"status": "PASS or FAIL", "confidence": 85, "reason": "brief explanation"}}''',
+  'OLLAMA_KEEP_ALIVE': 0,
+  'OLLAMA_OPTIONS': {
+    'temperature': 0.7,
+    'num_ctx': 65536,
+    'repeat_penalty': 1.1,
+    'top_k': 40,
+    'top_p': 0.9,
+    'min_p': 0.0,
+    'repeat_last_n': 64,
+  }
 }
 
-# Valid Categories
+# Ollama LLM Configuration - Formatting
+OLLAMA_FORMATTING = {
+  'OLLAMA_API_URL': 'http://localhost:11434/api/generate',
+  'OLLAMA_MODEL': 'qwen3:8b',
+  'OLLAMA_SYSTEM_PROMPT': 'You are an editor. Keep responses short.',
+  'OLLAMA_USER_PROMPT': '''Improve grammar of this joke:
+{content}
+
+Respond ONLY with valid JSON:
+{{"formatted_joke": "improved text", "confidence": 85, "changes": "description"}}''',
+  'OLLAMA_KEEP_ALIVE': 0,
+  'OLLAMA_OPTIONS': {...}
+}
+
+# Ollama LLM Configuration - Categorization
+OLLAMA_CATEGORIZATION = {
+  'OLLAMA_API_URL': 'http://localhost:11434/api/generate',
+  'OLLAMA_MODEL': 'qwen3:8b',
+  'OLLAMA_SYSTEM_PROMPT': 'You are a joke categorizer. Keep responses short.',
+  'OLLAMA_USER_PROMPT': '''Categorize this joke (1-3 categories):
+{categories_list}
+
+Joke: {content}
+
+Respond ONLY with valid JSON:
+{{"categories": ["Cat1", "Cat2"], "confidence": 85, "reasoning": "explanation"}}''',
+  'OLLAMA_KEEP_ALIVE': 0,
+  'OLLAMA_OPTIONS': {...}
+}
+
+# Ollama LLM Configuration - Title Generation
+OLLAMA_TITLE_GENERATION = {
+  'OLLAMA_API_URL': 'http://localhost:11434/api/generate',
+  'OLLAMA_MODEL': 'qwen3:8b',
+  'OLLAMA_SYSTEM_PROMPT': 'You are a title writer. Keep responses short.',
+  'OLLAMA_USER_PROMPT': '''Create a title for this joke:
+{content}
+
+Categories: {categories}
+
+Respond ONLY with valid JSON:
+{{"title": "Short Title", "confidence": 85}}''',
+  'OLLAMA_KEEP_ALIVE': 0,
+  'OLLAMA_OPTIONS': {...}
+}
+
+# Valid Categories (Adult removed - not appropriate, flagged in cleanliness check)
 VALID_CATEGORIES = [
     "Puns", "Wordplay", "Dad Jokes", "Dark Humor", "Observational",
     "Knock-Knock", "One-Liners", "Anti-Jokes",
@@ -522,7 +584,7 @@ VALID_CATEGORIES = [
     "History", "Travel",
     "Holiday", "Christmas", "Halloween", "Thanksgiving",
     "Birthday", "Wedding",
-    "Clean", "Adult", "Topical"
+    "Clean", "Topical"
 ]
 MAX_CATEGORIES_PER_JOKE = 3
 

@@ -70,7 +70,7 @@ class ParsedProcessor(StageProcessor):
       # Call search_tfidf.py with -1 flag for single-line output
       return_code, stdout, stderr = run_external_script(
         config.SEARCH_TFIDF,
-        ['-1', temp_file]
+        ['-1','-a', config.SEARCH_TFIDF_DATA_DIR, temp_file]
       )
       
       # Check if script executed successfully

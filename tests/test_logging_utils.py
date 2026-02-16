@@ -39,14 +39,22 @@ def test_setup_logging_creates_log_file():
 
 
 def test_setup_logging_configures_handlers():
-    """Test that setup_logging configures both file and console handlers."""
+    """Test that setup_logging configures file handler by default."""
     with tempfile.TemporaryDirectory() as tmpdir:
         log_dir = os.path.join(tmpdir, "test_logs")
         logger = setup_logging(log_dir, "INFO")
-        
-        # Should have at least two handlers (file + console)
-        assert len(logger.handlers) >= 2
+
+        # Should have only file handler by default
+        assert len(logger.handlers) == 1
+        assert isinstance(logger.handlers[0], logging.FileHandler)
         assert logger.level == logging.INFO
+
+        # Test with stdout enabled
+        logger2 = setup_logging(log_dir, "INFO", log_to_stdout=True)
+        assert len(logger2.handlers) == 2
+        handler_types = [type(h).__name__ for h in logger2.handlers]
+        assert 'FileHandler' in handler_types
+        assert 'StreamHandler' in handler_types
 
 
 def test_log_with_joke_id_includes_prefix():

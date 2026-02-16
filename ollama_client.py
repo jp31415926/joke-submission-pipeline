@@ -23,17 +23,18 @@ class OllamaClient:
     Args:
       ollama_config: Configuration dictionary from config.py
     """
-    self.api_url = ollama_config['ollama_api_url']
-    self.model = ollama_config['ollama_model']
-    self.prefix_prompt = ollama_config.get('ollama_prefix_prompt', '')
-    self.options = ollama_config.get('ollama_options', {})
-    self.keep_alive = ollama_config.get('ollama_keep_alive', 0)
+    self.api_url = ollama_config['OLLAMA_API_URL']
+    self.model = ollama_config['OLLAMA_MODEL']
+    self.system_prompt = ollama_config.get('OLLAMA_SYSTEM_PROMPT', '')
+    self.user_prompt_template = ollama_config.get('OLLAMA_USER_PROMPT', '')
+    self.options = ollama_config.get('OLLAMA_OPTIONS', {})
+    self.keep_alive = ollama_config.get('OLLAMA_KEEP_ALIVE', 0)
 
   def generate(
     self,
     system_prompt: str,
     user_prompt: str,
-    timeout: int = 30
+    timeout: int = 300
   ) -> str:
     """
     Generate response from Ollama API.
@@ -77,6 +78,7 @@ class OllamaClient:
       response = requests.post(
         self.api_url,
         json=request_body,
+        headers={'Content-Type': 'application/json'},
         timeout=timeout
       )
 

@@ -49,14 +49,25 @@ def test_required_constants_present():
     assert hasattr(config, 'BUILD_TFIDF')
     assert hasattr(config, 'SEARCH_TFIDF')
     
+    # Timeouts
+    assert hasattr(config, 'EXTERNAL_SCRIPT_TIMEOUT')
+    assert hasattr(config, 'OLLAMA_TIMEOUT')
+
     # Thresholds
     assert hasattr(config, 'DUPLICATE_THRESHOLD')
     assert hasattr(config, 'CLEANLINESS_MIN_CONFIDENCE')
     assert hasattr(config, 'CATEGORIZATION_MIN_CONFIDENCE')
-    
-    # Ollama config
-    assert hasattr(config, 'ollama_config')
-    assert isinstance(config.ollama_config, dict)
+    assert hasattr(config, 'TITLE_MIN_CONFIDENCE')
+
+    # Ollama configs (new structure)
+    assert hasattr(config, 'OLLAMA_CLEANLINESS_CHECK')
+    assert hasattr(config, 'OLLAMA_FORMATTING')
+    assert hasattr(config, 'OLLAMA_CATEGORIZATION')
+    assert hasattr(config, 'OLLAMA_TITLE_GENERATION')
+    assert isinstance(config.OLLAMA_CLEANLINESS_CHECK, dict)
+    assert isinstance(config.OLLAMA_FORMATTING, dict)
+    assert isinstance(config.OLLAMA_CATEGORIZATION, dict)
+    assert isinstance(config.OLLAMA_TITLE_GENERATION, dict)
     
     # Categories
     assert hasattr(config, 'VALID_CATEGORIES')
@@ -74,28 +85,35 @@ def test_required_constants_present():
 
 def test_data_types():
     """Test that configuration values have correct data types."""
+    # Timeouts should be integers
+    assert isinstance(config.EXTERNAL_SCRIPT_TIMEOUT, int)
+    assert isinstance(config.OLLAMA_TIMEOUT, int)
+
     # Thresholds should be integers
     assert isinstance(config.DUPLICATE_THRESHOLD, int)
     assert isinstance(config.CLEANLINESS_MIN_CONFIDENCE, int)
     assert isinstance(config.CATEGORIZATION_MIN_CONFIDENCE, int)
-    
+    assert isinstance(config.TITLE_MIN_CONFIDENCE, int)
+
     # MAX_RETRIES should be an integer
     assert isinstance(config.MAX_RETRIES, int)
-    
+
     # MAX_CATEGORIES_PER_JOKE should be an integer
     assert isinstance(config.MAX_CATEGORIES_PER_JOKE, int)
-    
+
     # LOG_LEVEL should be a string
     assert isinstance(config.LOG_LEVEL, str)
-    
-    # Ollama config should be a dictionary with required keys
-    assert 'ollama_api_url' in config.ollama_config
-    assert 'ollama_model' in config.ollama_config
-    assert 'ollama_prefix_prompt' in config.ollama_config
-    assert 'ollama_think' in config.ollama_config
-    assert 'ollama_keep_alive' in config.ollama_config
-    assert 'ollama_options' in config.ollama_config
-    assert isinstance(config.ollama_config['ollama_options'], dict)
+
+    # Ollama configs should be dictionaries with required keys
+    for ollama_cfg in [config.OLLAMA_CLEANLINESS_CHECK, config.OLLAMA_FORMATTING,
+                       config.OLLAMA_CATEGORIZATION, config.OLLAMA_TITLE_GENERATION]:
+        assert 'OLLAMA_API_URL' in ollama_cfg
+        assert 'OLLAMA_MODEL' in ollama_cfg
+        assert 'OLLAMA_SYSTEM_PROMPT' in ollama_cfg
+        assert 'OLLAMA_USER_PROMPT' in ollama_cfg
+        assert 'OLLAMA_KEEP_ALIVE' in ollama_cfg
+        assert 'OLLAMA_OPTIONS' in ollama_cfg
+        assert isinstance(ollama_cfg['OLLAMA_OPTIONS'], dict)
 
 def test_valid_categories():
     """Test that VALID_CATEGORIES is a non-empty list."""
@@ -103,26 +121,29 @@ def test_valid_categories():
     assert len(config.VALID_CATEGORIES) > 0
 
 def test_ollama_config_has_required_keys():
-    """Test that ollama_config has all required keys."""
+    """Test that ollama configs have all required keys."""
     required_keys = [
-        'ollama_api_url',
-        'ollama_model', 
-        'ollama_prefix_prompt',
-        'ollama_think',
-        'ollama_keep_alive',
-        'ollama_options'
+        'OLLAMA_API_URL',
+        'OLLAMA_MODEL',
+        'OLLAMA_SYSTEM_PROMPT',
+        'OLLAMA_USER_PROMPT',
+        'OLLAMA_KEEP_ALIVE',
+        'OLLAMA_OPTIONS'
     ]
-    
-    for key in required_keys:
-        assert key in config.ollama_config, f"Missing key in ollama_config: {key}"
-    
-    assert 'temperature' in config.ollama_config['ollama_options']
-    assert 'num_ctx' in config.ollama_config['ollama_options']
-    assert 'repeat_penalty' in config.ollama_config['ollama_options']
-    assert 'top_k' in config.ollama_config['ollama_options']
-    assert 'top_p' in config.ollama_config['ollama_options']
-    assert 'min_p' in config.ollama_config['ollama_options']
-    assert 'repeat_last_n' in config.ollama_config['ollama_options']
+
+    for ollama_cfg in [config.OLLAMA_CLEANLINESS_CHECK, config.OLLAMA_FORMATTING,
+                       config.OLLAMA_CATEGORIZATION, config.OLLAMA_TITLE_GENERATION]:
+        for key in required_keys:
+            assert key in ollama_cfg, f"Missing key in ollama config: {key}"
+
+        # Check options
+        assert 'temperature' in ollama_cfg['OLLAMA_OPTIONS']
+        assert 'num_ctx' in ollama_cfg['OLLAMA_OPTIONS']
+        assert 'repeat_penalty' in ollama_cfg['OLLAMA_OPTIONS']
+        assert 'top_k' in ollama_cfg['OLLAMA_OPTIONS']
+        assert 'top_p' in ollama_cfg['OLLAMA_OPTIONS']
+        assert 'min_p' in ollama_cfg['OLLAMA_OPTIONS']
+        assert 'repeat_last_n' in ollama_cfg['OLLAMA_OPTIONS']
 
 def test_pipeline_paths_exist():
     """Test that pipeline paths are properly set."""

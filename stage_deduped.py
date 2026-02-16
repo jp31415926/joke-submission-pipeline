@@ -3,6 +3,7 @@
 Stage 03 - Deduped: Cleanliness check using Ollama LLM.
 """
 
+import json
 from typing import Tuple, Dict
 
 from stage_processor import StageProcessor
@@ -32,7 +33,7 @@ class DedupedProcessor(StageProcessor):
       config_module=config
     )
     self.logger = get_logger("DedupedProcessor")
-    self.ollama_client = OllamaClient(config.ollama_config)
+    self.ollama_client = OllamaClient(config.OLLAMA_CLEANLINESS_CHECK)
     self.min_confidence = config.CLEANLINESS_MIN_CONFIDENCE
 
   def process_file(
@@ -55,40 +56,33 @@ class DedupedProcessor(StageProcessor):
     joke_id = headers.get('Joke-ID', 'unknown')
     self.logger.info(f"Processing cleanliness check for Joke-ID: {joke_id}")
 
-    # Construct prompts
-    system_prompt = (
-      "You are a content moderator evaluating jokes for appropriateness."
-    )
-
-    user_prompt = f"""Evaluate this joke for cleanliness and appropriateness:
-
-{content}
-
-Determine if this joke is:
-- Clean (no profanity, sexual content, or offensive material)
-- Appropriate for general audiences
-
-Respond with:
-Status: PASS or FAIL
-Confidence: <0-100 integer>
-Reason: <brief explanation>
-"""
+    # Construct prompts from config
+    system_prompt = self.ollama_client.system_prompt
+    user_prompt = self.ollama_client.user_prompt_template.format(content=content)
 
     try:
       # Call Ollama LLM
       response_text = self.ollama_client.generate(
         system_prompt,
-        user_prompt
+        user_prompt,
+        timeout=config.OLLAMA_TIMEOUT
       )
 
-      # Parse response
-      response_dict = self.ollama_client.parse_structured_response(
-        response_text,
-        ['Status', 'Confidence', 'Reason']
-      )
+      # Parse JSON response
+      try:
+        response_dict = json.loads(response_text.strip())
+      except json.JSONDecodeError as e:
+        self.logger.error(
+          f"Failed to parse JSON response for Joke-ID: {joke_id}: {e}"
+        )
+        # Fall back to old parsing method
+        response_dict = self.ollama_client.parse_structured_response(
+          response_text,
+          ['status', 'confidence', 'reason']
+        )
 
       # Extract status
-      status = response_dict.get('Status', '').upper()
+      status = response_dict.get('status', '').upper()
       if status not in ['PASS', 'FAIL']:
         self.logger.warning(
           f"Invalid status '{status}' for Joke-ID: {joke_id}, "
@@ -97,7 +91,9 @@ Reason: <brief explanation>
         status = 'FAIL'
 
       # Extract confidence
-      confidence = self.ollama_client.extract_confidence(response_dict)
+      confidence = response_dict.get('confidence')
+      if confidence is None:
+        confidence = self.ollama_client.extract_confidence(response_dict)
       if confidence is None:
         self.logger.warning(
           f"Could not extract confidence for Joke-ID: {joke_id}, "
@@ -106,7 +102,7 @@ Reason: <brief explanation>
         confidence = 0
 
       # Extract reason
-      reason = response_dict.get('Reason', 'No reason provided')
+      reason = response_dict.get('reason', 'No reason provided')
 
       # Update headers
       headers['Cleanliness-Status'] = status

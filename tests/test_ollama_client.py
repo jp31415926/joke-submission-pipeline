@@ -20,11 +20,12 @@ from ollama_client import OllamaClient
 def ollama_config():
   """Sample Ollama configuration."""
   return {
-    'ollama_api_url': 'http://localhost:11434/api/generate',
-    'ollama_model': 'llama3',
-    'ollama_prefix_prompt': 'You are a helpful assistant.',
-    'ollama_keep_alive': 0,
-    'ollama_options': {
+    'OLLAMA_API_URL': 'http://localhost:11434/api/generate',
+    'OLLAMA_MODEL': 'llama3',
+    'OLLAMA_SYSTEM_PROMPT': 'You are a helpful assistant.',
+    'OLLAMA_USER_PROMPT': 'Process this: {content}',
+    'OLLAMA_KEEP_ALIVE': 0,
+    'OLLAMA_OPTIONS': {
       'temperature': 0.7,
       'num_ctx': 65536,
     }
@@ -39,10 +40,11 @@ def client(ollama_config):
 
 def test_client_initialization(client, ollama_config):
   """Test client initialization."""
-  assert client.api_url == ollama_config['ollama_api_url']
-  assert client.model == ollama_config['ollama_model']
-  assert client.prefix_prompt == ollama_config['ollama_prefix_prompt']
-  assert client.options == ollama_config['ollama_options']
+  assert client.api_url == ollama_config['OLLAMA_API_URL']
+  assert client.model == ollama_config['OLLAMA_MODEL']
+  assert client.system_prompt == ollama_config['OLLAMA_SYSTEM_PROMPT']
+  assert client.user_prompt_template == ollama_config['OLLAMA_USER_PROMPT']
+  assert client.options == ollama_config['OLLAMA_OPTIONS']
 
 
 @patch('requests.post')

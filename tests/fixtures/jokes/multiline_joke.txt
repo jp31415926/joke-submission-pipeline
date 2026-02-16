@@ -1,0 +1,15 @@
+Joke-ID: 11111111-2222-3333-4444-555555555555
+Title: Little Johnny's Ambition
+Submitter: test@example.com
+Source-Email-File: test_email_multiline.txt
+Pipeline-Stage: 04_clean_checked
+Duplicate-Score: 10
+Duplicate-Threshold: 70
+Cleanliness-Status: PASS
+Cleanliness-Confidence: 85
+
+a teacher asks her class what do you want to be when you grow up
+
+little johnny raises his hand and says i want to be a millionaire have a beautiful girlfriend give her a ferrari an apartment in paris a mansion in beverly hills a private jet to fly anywhere an infinite visa card and i want to make love to her three times a day
+
+the teacher shocked doesn't know what to say she decides not to acknowledge johnnys answer and continues with the lesson

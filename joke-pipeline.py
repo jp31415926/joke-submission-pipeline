@@ -102,6 +102,12 @@ Examples:
   # Run with verbose logging
   %(prog)s --verbose
 
+  # Run with custom log level
+  %(prog)s --log-level WARNING
+
+  # Run with logging to stdout
+  %(prog)s --log-to-stdout
+
 Stages (in order):
   incoming      - Extract jokes from emails
   parsed        - Check for duplicates using TF-IDF
@@ -133,16 +139,35 @@ Stages (in order):
   )
 
   parser.add_argument(
+    '--log-level',
+    choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
+    default=None,
+    help='Set logging level (default: INFO from config)'
+  )
+
+  parser.add_argument(
+    '--log-to-stdout',
+    action='store_true',
+    help='Also log to stdout (default: log to file only)'
+  )
+
+  parser.add_argument(
     '--verbose',
     action='store_true',
-    help='Enable DEBUG level logging'
+    help='Enable DEBUG level logging (shorthand for --log-level DEBUG)'
   )
 
   args = parser.parse_args()
 
   # Setup logging
-  log_level = 'DEBUG' if args.verbose else config.LOG_LEVEL
-  setup_logging(config.LOG_DIR, log_level)
+  if args.verbose:
+    log_level = 'DEBUG'
+  elif args.log_level:
+    log_level = args.log_level
+  else:
+    log_level = config.LOG_LEVEL
+
+  setup_logging(config.LOG_DIR, log_level, log_to_stdout=args.log_to_stdout)
 
   logger = get_logger("Main")
   logger.info(f"Joke Pipeline starting with arguments: {vars(args)}")

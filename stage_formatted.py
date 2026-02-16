@@ -5,6 +5,7 @@ Stage 05: Formatted - Categorization
 This stage uses Ollama LLM to assign 1-3 categories to jokes.
 """
 
+import json
 from typing import Tuple, Dict, List
 
 from stage_processor import StageProcessor
@@ -30,7 +31,7 @@ class FormattedProcessor(StageProcessor):
       config_module=config
     )
     self.logger = get_logger("FormattedProcessor")
-    self.ollama_client = OllamaClient(config.ollama_config)
+    self.ollama_client = OllamaClient(config.OLLAMA_CATEGORIZATION)
     self.min_confidence = config.CATEGORIZATION_MIN_CONFIDENCE
     self.valid_categories = config.VALID_CATEGORIES
     self.max_categories = config.MAX_CATEGORIES_PER_JOKE
@@ -96,45 +97,50 @@ class FormattedProcessor(StageProcessor):
     joke_id = headers.get('Joke-ID', 'unknown')
     self.logger.info(f"Processing categorization for Joke-ID: {joke_id}")
 
-    # Construct system prompt
-    system_prompt = "You are a joke categorization expert."
-
-    # Construct user prompt with valid categories
-    categories_list = ', '.join(self.valid_categories)
-    user_prompt = f"""Categorize this joke into 1-3 categories from this list:
-{categories_list}
-
-Joke:
-{content}
-
-Respond with:
-Categories: <comma-separated list of 1-3 categories>
-Confidence: <0-100 integer>
-Reasoning: <brief explanation>
-"""
+    # Construct prompts from config
+    system_prompt = self.ollama_client.system_prompt
+    categories_list_str = ', '.join(self.valid_categories)
+    user_prompt = self.ollama_client.user_prompt_template.format(
+      categories_list=categories_list_str,
+      content=content
+    )
 
     try:
       # Call Ollama LLM
       response_text = self.ollama_client.generate(
         system_prompt,
-        user_prompt
+        user_prompt,
+        timeout=config.OLLAMA_TIMEOUT
       )
 
-      # Parse response
-      response_dict = self.ollama_client.parse_structured_response(
-        response_text,
-        ['Categories', 'Confidence', 'Reasoning']
-      )
+      # Parse JSON response
+      try:
+        response_dict = json.loads(response_text.strip())
+      except json.JSONDecodeError as e:
+        self.logger.error(
+          f"Failed to parse JSON response for Joke-ID: {joke_id}: {e}"
+        )
+        # Fall back to old parsing method
+        response_dict = self.ollama_client.parse_structured_response(
+          response_text,
+          ['categories', 'confidence', 'reasoning']
+        )
 
       # Extract categories
-      categories_str = response_dict.get('Categories', '').strip()
-      if not categories_str:
-        error_msg = "LLM did not return categories"
+      categories_raw = response_dict.get('categories', [])
+      if isinstance(categories_raw, list):
+        categories_list = [cat.strip() for cat in categories_raw]
+      elif isinstance(categories_raw, str):
+        categories_list = [cat.strip() for cat in categories_raw.split(',')]
+      else:
+        error_msg = "LLM did not return valid categories"
         self.logger.error(f"Joke-ID {joke_id}: {error_msg}")
         return (False, headers, content, error_msg)
 
-      # Parse comma-separated categories
-      categories_list = [cat.strip() for cat in categories_str.split(',')]
+      if not categories_list:
+        error_msg = "LLM returned empty categories list"
+        self.logger.error(f"Joke-ID {joke_id}: {error_msg}")
+        return (False, headers, content, error_msg)
 
       # Validate categories
       valid, error_msg, validated_categories = self._validate_categories(
@@ -145,7 +151,9 @@ Reasoning: <brief explanation>
         return (False, headers, content, error_msg)
 
       # Extract confidence
-      confidence = self.ollama_client.extract_confidence(response_dict)
+      confidence = response_dict.get('confidence')
+      if confidence is None:
+        confidence = self.ollama_client.extract_confidence(response_dict)
       if confidence is None:
         self.logger.warning(
           f"Could not extract confidence for Joke-ID: {joke_id}, "
@@ -154,7 +162,7 @@ Reasoning: <brief explanation>
         confidence = 0
 
       # Extract reasoning
-      reasoning = response_dict.get('Reasoning', 'No reasoning provided')
+      reasoning = response_dict.get('reasoning', 'No reasoning provided')
 
       # Update headers
       headers['Categories'] = ', '.join(validated_categories)

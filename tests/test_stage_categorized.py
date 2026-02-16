@@ -3,6 +3,7 @@
 Tests for stage_categorized.py - Title generation and final validation.
 """
 
+import json
 import os
 import sys
 import shutil
@@ -56,13 +57,12 @@ def mock_ollama_title_generation():
   """Mock Ollama client that generates a title."""
   with patch('stage_categorized.OllamaClient') as mock_client_class:
     mock_client = Mock()
-    mock_client.generate.return_value = """
-Title: The Traveling Photon
-Confidence: 85
-"""
+    mock_client.system_prompt = 'You are a creative title writer.'
+    mock_client.user_prompt_template = 'Create title for: {content}'
+    mock_client.generate.return_value = json.dumps({"title": "The Traveling Photon", "confidence": 85})
     mock_client.parse_structured_response.return_value = {
-      'Title': 'The Traveling Photon',
-      'Confidence': '85'
+      'title': 'The Traveling Photon',
+      'confidence': '85'
     }
     mock_client.extract_confidence.return_value = 85
     mock_client_class.return_value = mock_client
@@ -74,13 +74,12 @@ def mock_ollama_low_confidence_title():
   """Mock Ollama client that generates low confidence title."""
   with patch('stage_categorized.OllamaClient') as mock_client_class:
     mock_client = Mock()
-    mock_client.generate.return_value = """
-Title: Some Title
-Confidence: 50
-"""
+    mock_client.system_prompt = 'You are a creative title writer.'
+    mock_client.user_prompt_template = 'Create title for: {content}'
+    mock_client.generate.return_value = json.dumps({"title": "Some Title", "confidence": 50})
     mock_client.parse_structured_response.return_value = {
-      'Title': 'Some Title',
-      'Confidence': '50'
+      'title': 'Some Title',
+      'confidence': '50'
     }
     mock_client.extract_confidence.return_value = 50
     mock_client_class.return_value = mock_client
