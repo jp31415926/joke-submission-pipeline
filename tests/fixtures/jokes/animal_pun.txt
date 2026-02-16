@@ -1,0 +1,13 @@
+Joke-ID: 33333333-4444-5555-6666-777777777777
+Title: Ocean Joke
+Submitter: test@example.com
+Source-Email-File: test_email7.txt
+Pipeline-Stage: 05_formatted
+Duplicate-Score: 12
+Duplicate-Threshold: 70
+Cleanliness-Status: PASS
+Cleanliness-Confidence: 98
+Format-Status: PASS
+Format-Confidence: 93
+
+What do you call a fish wearing a crown? A king fish. Actually, it's called a salmon royale!

@@ -1,0 +1,13 @@
+Joke-ID: 22222222-3333-4444-5555-666666666666
+Title: Dad's Pizza
+Submitter: test@example.com
+Source-Email-File: test_email6.txt
+Pipeline-Stage: 05_formatted
+Duplicate-Score: 22
+Duplicate-Threshold: 70
+Cleanliness-Status: PASS
+Cleanliness-Confidence: 95
+Format-Status: PASS
+Format-Confidence: 90
+
+I used to hate facial hair, but then it grew on me.

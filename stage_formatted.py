@@ -1,0 +1,198 @@
+#!/usr/bin/env python3
+"""
+Stage 05: Formatted - Categorization
+
+This stage uses Ollama LLM to assign 1-3 categories to jokes.
+"""
+
+from typing import Tuple, Dict, List
+
+from stage_processor import StageProcessor
+from ollama_client import OllamaClient
+from logging_utils import get_logger
+import config
+
+logger = get_logger(__name__)
+
+
+class FormattedProcessor(StageProcessor):
+  """
+  Process formatted jokes to assign categories using Ollama LLM.
+  """
+
+  def __init__(self):
+    """Initialize the FormattedProcessor."""
+    super().__init__(
+      stage_name="formatted",
+      input_stage=config.STAGES["formatted"],
+      output_stage=config.STAGES["categorized"],
+      reject_stage=config.REJECTS["category"],
+      config_module=config
+    )
+    self.logger = get_logger("FormattedProcessor")
+    self.ollama_client = OllamaClient(config.ollama_config)
+    self.min_confidence = config.CATEGORIZATION_MIN_CONFIDENCE
+    self.valid_categories = config.VALID_CATEGORIES
+    self.max_categories = config.MAX_CATEGORIES_PER_JOKE
+
+  def _validate_categories(self, categories: List[str]) -> Tuple[bool, str, List[str]]:
+    """
+    Validate category list.
+
+    Args:
+      categories: List of category strings
+
+    Returns:
+      Tuple of (valid: bool, error_message: str, validated_categories: List[str])
+    """
+    if not categories:
+      return (False, "No categories provided", [])
+
+    # Check category count
+    if len(categories) > self.max_categories:
+      return (
+        False,
+        f"Too many categories: {len(categories)} (max {self.max_categories})",
+        []
+      )
+
+    # Validate each category (case-insensitive)
+    validated = []
+    valid_categories_lower = {cat.lower(): cat for cat in self.valid_categories}
+
+    for cat in categories:
+      cat_stripped = cat.strip()
+      cat_lower = cat_stripped.lower()
+
+      if cat_lower in valid_categories_lower:
+        # Use the canonical capitalization
+        validated.append(valid_categories_lower[cat_lower])
+      else:
+        return (
+          False,
+          f"Invalid category '{cat_stripped}' (not in VALID_CATEGORIES)",
+          []
+        )
+
+    return (True, "", validated)
+
+  def process_file(
+    self,
+    filepath: str,
+    headers: Dict[str, str],
+    content: str
+  ) -> Tuple[bool, Dict[str, str], str, str]:
+    """
+    Process a joke file to assign categories.
+
+    Args:
+      filepath: Path to the joke file
+      headers: Dictionary of headers from the joke file
+      content: Joke content
+
+    Returns:
+      Tuple of (success, updated_headers, updated_content, reject_reason)
+    """
+    joke_id = headers.get('Joke-ID', 'unknown')
+    self.logger.info(f"Processing categorization for Joke-ID: {joke_id}")
+
+    # Construct system prompt
+    system_prompt = "You are a joke categorization expert."
+
+    # Construct user prompt with valid categories
+    categories_list = ', '.join(self.valid_categories)
+    user_prompt = f"""Categorize this joke into 1-3 categories from this list:
+{categories_list}
+
+Joke:
+{content}
+
+Respond with:
+Categories: <comma-separated list of 1-3 categories>
+Confidence: <0-100 integer>
+Reasoning: <brief explanation>
+"""
+
+    try:
+      # Call Ollama LLM
+      response_text = self.ollama_client.generate(
+        system_prompt,
+        user_prompt
+      )
+
+      # Parse response
+      response_dict = self.ollama_client.parse_structured_response(
+        response_text,
+        ['Categories', 'Confidence', 'Reasoning']
+      )
+
+      # Extract categories
+      categories_str = response_dict.get('Categories', '').strip()
+      if not categories_str:
+        error_msg = "LLM did not return categories"
+        self.logger.error(f"Joke-ID {joke_id}: {error_msg}")
+        return (False, headers, content, error_msg)
+
+      # Parse comma-separated categories
+      categories_list = [cat.strip() for cat in categories_str.split(',')]
+
+      # Validate categories
+      valid, error_msg, validated_categories = self._validate_categories(
+        categories_list
+      )
+      if not valid:
+        self.logger.error(f"Joke-ID {joke_id}: {error_msg}")
+        return (False, headers, content, error_msg)
+
+      # Extract confidence
+      confidence = self.ollama_client.extract_confidence(response_dict)
+      if confidence is None:
+        self.logger.warning(
+          f"Could not extract confidence for Joke-ID: {joke_id}, "
+          f"using 0"
+        )
+        confidence = 0
+
+      # Extract reasoning
+      reasoning = response_dict.get('Reasoning', 'No reasoning provided')
+
+      # Update headers
+      headers['Categories'] = ', '.join(validated_categories)
+      headers['Category-Confidence'] = str(confidence)
+
+      self.logger.info(
+        f"Categorization result for Joke-ID {joke_id}: "
+        f"Categories={validated_categories}, Confidence={confidence}, "
+        f"Reasoning: {reasoning}"
+      )
+
+      # Check confidence threshold
+      if confidence < self.min_confidence:
+        reject_reason = (
+          f"Confidence {confidence} below minimum "
+          f"{self.min_confidence}"
+        )
+        self.logger.warning(
+          f"Joke-ID: {joke_id} rejected due to low categorization confidence: "
+          f"{confidence} < {self.min_confidence}"
+        )
+        return (False, headers, content, reject_reason)
+
+      # Success
+      self.logger.info(
+        f"Joke-ID: {joke_id} categorization complete"
+      )
+      return (True, headers, content, "")
+
+    except Exception as e:
+      # Handle LLM errors
+      self.logger.error(
+        f"LLM error processing Joke-ID: {joke_id}: {e}"
+      )
+      reject_reason = f"LLM error: {str(e)}"
+      return (False, headers, content, reject_reason)
+
+
+if __name__ == '__main__':
+  processor = FormattedProcessor()
+  processor.run()

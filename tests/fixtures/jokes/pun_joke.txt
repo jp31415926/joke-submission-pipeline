@@ -1,0 +1,13 @@
+Joke-ID: 11111111-2222-3333-4444-555555555555
+Title: Banking Pun
+Submitter: test@example.com
+Source-Email-File: test_email5.txt
+Pipeline-Stage: 05_formatted
+Duplicate-Score: 18
+Duplicate-Threshold: 70
+Cleanliness-Status: PASS
+Cleanliness-Confidence: 92
+Format-Status: PASS
+Format-Confidence: 88
+
+Why did the banker break up with his calculator? Because she was always trying to divide his interest.
