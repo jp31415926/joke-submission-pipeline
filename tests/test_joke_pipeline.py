@@ -146,11 +146,11 @@ This is a sample joke from an email."""
     mock_client_categorize = Mock()
     mock_client_categorize.system_prompt = 'You are a joke categorizer.'
     mock_client_categorize.user_prompt_template = 'Categorize: {content}'
-    mock_client_categorize.generate.return_value = json_lib.dumps({"categories": ["Clean", "Observational"], "confidence": 85, "reasoning": "General clean observational humor"})
+    mock_client_categorize.generate.return_value = json_lib.dumps({"categories": ["Puns", "Observational"], "confidence": 85, "reason": "General clean observational humor"})
     mock_client_categorize.parse_structured_response.return_value = {
       'categories': ['Clean', 'Observational'],
       'confidence': '85',
-      'reasoning': 'General clean observational humor'
+      'reason': 'General clean observational humor'
     }
     mock_client_categorize.extract_confidence.return_value = 85
     mock_ollama_categorize.return_value = mock_client_categorize

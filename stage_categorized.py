@@ -32,7 +32,10 @@ class CategorizedProcessor(StageProcessor):
       config_module=config
     )
     self.logger = get_logger("CategorizedProcessor")
-    self.ollama_client = OllamaClient(config.OLLAMA_TITLE_GENERATION)
+    self.ollama_client = OllamaClient(
+      config.OLLAMA_TITLE_GENERATION,
+      stage_name="title_generation"
+    )
     self.title_min_confidence = config.TITLE_MIN_CONFIDENCE
 
   def _validate_final(
@@ -219,5 +222,13 @@ class CategorizedProcessor(StageProcessor):
 
 
 if __name__ == '__main__':
-  processor = CategorizedProcessor()
-  processor.run()
+  from stage_utils import initialize_stage_environment, cleanup_stage_environment
+
+  # Initialize environment (server pool, signal handlers)
+  initialize_stage_environment()
+
+  try:
+    processor = CategorizedProcessor()
+    processor.run()
+  finally:
+    cleanup_stage_environment()

@@ -76,13 +76,13 @@ def mock_ollama_low_confidence():
     mock_client = Mock()
     mock_client.system_prompt = 'You are an editor improving joke formatting and grammar.'
     mock_client.user_prompt_template = 'Improve the grammar of this joke: {content}'
-    mock_client.generate.return_value = '{"formatted_joke": "Why did the computer go to the doctor? Because it had a virus!", "confidence": 50, "changes": "Original text was very poor quality, attempted improvements"}'
+    mock_client.generate.return_value = '{"formatted_joke": "Why did the computer go to the doctor? Because it had a virus!", "confidence": 45, "changes": "Original text was very poor quality, attempted improvements"}'
     mock_client.parse_structured_response.return_value = {
       'formatted_joke': 'Why did the computer go to the doctor? Because it had a virus!',
-      'confidence': '50',
+      'confidence': '45',
       'changes': 'Original text was very poor quality, attempted improvements'
     }
-    mock_client.extract_confidence.return_value = 50
+    mock_client.extract_confidence.return_value = 45
     mock_client_class.return_value = mock_client
     yield mock_client
 
@@ -208,11 +208,11 @@ def test_low_confidence_rejected(
   # Verify metadata
   headers, content = parse_joke_file(reject_file)
   assert headers['Format-Status'] == 'PASS'
-  assert headers['Format-Confidence'] == '50'
+  assert headers['Format-Confidence'] == '45'
   assert headers['Pipeline-Stage'] == config.REJECTS['format']
   assert 'Rejection-Reason' in headers
   assert 'confidence' in headers['Rejection-Reason'].lower()
-  assert '50' in headers['Rejection-Reason']
+  assert '45' in headers['Rejection-Reason']
 
 
 def test_content_updated(

@@ -37,18 +37,22 @@ def setup_logging(log_dir: str, log_level: str, log_to_stdout: bool = False) -> 
 
     # Create formatter
     formatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        #"%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        '%(asctime)s %(levelname)s %(name)s:%(message)s',
+        '%Y-%m-%d %H:%M:%S'
     )
 
     # File handler (always enabled)
     log_file = os.path.join(log_dir, "pipeline.log")
     file_handler = logging.FileHandler(log_file)
+    file_handler.setLevel(getattr(logging, log_level.upper()))
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
 
     # Console handler (optional)
     if log_to_stdout:
         console_handler = logging.StreamHandler()
+        console_handler.setLevel(getattr(logging, log_level.upper()))
         console_handler.setFormatter(formatter)
         logger.addHandler(console_handler)
 
@@ -62,25 +66,24 @@ def get_logger(name: str) -> logging.Logger:
     """
     Get a logger instance by name. If logging hasn't been set up yet,
     configure with defaults from config.py.
-    
+
     Args:
-        name (str): Name of the logger
-        
+        name (str): Name of the logger (will be prefixed with "joke_pipeline.")
+
     Returns:
         logging.Logger: Logger instance
     """
     global _logger
-    
-    if _logger is not None:
-        # We already have a logger set up, so return the requested one
-        return logging.getLogger(name)
-    
-    # If not configured, setup with defaults
-    from config import LOG_DIR, LOG_LEVEL
-    setup_logging(LOG_DIR, LOG_LEVEL)
-    # Return the requested logger (this will get the default named logger 
-    # that was just configured)
-    return logging.getLogger(name)
+
+    if _logger is None:
+        # If not configured, setup with defaults
+        from config import LOG_DIR, LOG_LEVEL
+        setup_logging(LOG_DIR, LOG_LEVEL)
+
+    # Return a child logger of the configured logger
+    # This ensures all loggers inherit the handlers and settings
+    logger_name = f"joke_pipeline.{name}"
+    return logging.getLogger(logger_name)
 
 
 def log_with_joke_id(logger: logging.Logger, level: int, joke_id: Optional[str], message: str) -> None:

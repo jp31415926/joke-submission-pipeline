@@ -31,7 +31,10 @@ class FormattedProcessor(StageProcessor):
       config_module=config
     )
     self.logger = get_logger("FormattedProcessor")
-    self.ollama_client = OllamaClient(config.OLLAMA_CATEGORIZATION)
+    self.ollama_client = OllamaClient(
+      config.OLLAMA_CATEGORIZATION,
+      stage_name="categorization"
+    )
     self.min_confidence = config.CATEGORIZATION_MIN_CONFIDENCE
     self.valid_categories = config.VALID_CATEGORIES
     self.max_categories = config.MAX_CATEGORIES_PER_JOKE
@@ -123,7 +126,7 @@ class FormattedProcessor(StageProcessor):
         # Fall back to old parsing method
         response_dict = self.ollama_client.parse_structured_response(
           response_text,
-          ['categories', 'confidence', 'reasoning']
+          ['categories', 'confidence', 'reason']
         )
 
       # Extract categories
@@ -161,8 +164,8 @@ class FormattedProcessor(StageProcessor):
         )
         confidence = 0
 
-      # Extract reasoning
-      reasoning = response_dict.get('reasoning', 'No reasoning provided')
+      # Extract reason
+      reason = response_dict.get('reason', 'No reason provided')
 
       # Update headers
       headers['Categories'] = ', '.join(validated_categories)
@@ -171,7 +174,7 @@ class FormattedProcessor(StageProcessor):
       self.logger.info(
         f"Categorization result for Joke-ID {joke_id}: "
         f"Categories={validated_categories}, Confidence={confidence}, "
-        f"Reasoning: {reasoning}"
+        f"Reasoning: {reason}"
       )
 
       # Check confidence threshold
@@ -202,5 +205,13 @@ class FormattedProcessor(StageProcessor):
 
 
 if __name__ == '__main__':
-  processor = FormattedProcessor()
-  processor.run()
+  from stage_utils import initialize_stage_environment, cleanup_stage_environment
+
+  # Initialize environment (server pool, signal handlers)
+  initialize_stage_environment()
+
+  try:
+    processor = FormattedProcessor()
+    processor.run()
+  finally:
+    cleanup_stage_environment()

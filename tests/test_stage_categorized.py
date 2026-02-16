@@ -76,12 +76,12 @@ def mock_ollama_low_confidence_title():
     mock_client = Mock()
     mock_client.system_prompt = 'You are a creative title writer.'
     mock_client.user_prompt_template = 'Create title for: {content}'
-    mock_client.generate.return_value = json.dumps({"title": "Some Title", "confidence": 50})
+    mock_client.generate.return_value = json.dumps({"title": "Some Title", "confidence": 45})
     mock_client.parse_structured_response.return_value = {
       'title': 'Some Title',
-      'confidence': '50'
+      'confidence': '45'
     }
-    mock_client.extract_confidence.return_value = 50
+    mock_client.extract_confidence.return_value = 45
     mock_client_class.return_value = mock_client
     yield mock_client
 
@@ -179,7 +179,7 @@ def test_low_confidence_title_rejected(
   headers, content = parse_joke_file(reject_file)
   assert 'Rejection-Reason' in headers
   assert 'confidence' in headers['Rejection-Reason'].lower()
-  assert '50' in headers['Rejection-Reason']
+  assert '45' in headers['Rejection-Reason']
 
 
 def test_validation_all_fields_present(setup_test_environment):

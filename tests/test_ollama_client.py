@@ -14,13 +14,30 @@ from unittest.mock import Mock, patch
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from ollama_client import OllamaClient
+from ollama_server_pool import initialize_server_pool
+
+
+@pytest.fixture
+def server_pool(tmp_path):
+  """Initialize server pool for tests."""
+  lock_dir = tmp_path / "locks"
+  lock_dir.mkdir()
+
+  pool = initialize_server_pool(
+    servers=[{"url": "http://localhost:11434", "max_concurrent": 1}],
+    lock_dir=str(lock_dir),
+    retry_wait=0.1,
+    retry_max_attempts=3,
+    retry_jitter=0.05,
+    check_models=False  # Skip model checking for tests
+  )
+  return pool
 
 
 @pytest.fixture
 def ollama_config():
   """Sample Ollama configuration."""
   return {
-    'OLLAMA_API_URL': 'http://localhost:11434/api/generate',
     'OLLAMA_MODEL': 'llama3',
     'OLLAMA_SYSTEM_PROMPT': 'You are a helpful assistant.',
     'OLLAMA_USER_PROMPT': 'Process this: {content}',
@@ -33,18 +50,19 @@ def ollama_config():
 
 
 @pytest.fixture
-def client(ollama_config):
+def client(ollama_config, server_pool):
   """Create OllamaClient instance."""
-  return OllamaClient(ollama_config)
+  return OllamaClient(ollama_config, stage_name="test")
 
 
 def test_client_initialization(client, ollama_config):
   """Test client initialization."""
-  assert client.api_url == ollama_config['OLLAMA_API_URL']
   assert client.model == ollama_config['OLLAMA_MODEL']
   assert client.system_prompt == ollama_config['OLLAMA_SYSTEM_PROMPT']
   assert client.user_prompt_template == ollama_config['OLLAMA_USER_PROMPT']
   assert client.options == ollama_config['OLLAMA_OPTIONS']
+  assert client.server_pool is not None
+  assert client.stage_name == "test"
 
 
 @patch('requests.post')
@@ -67,7 +85,8 @@ def test_generate_success(mock_post, client):
   # Verify request was made correctly
   mock_post.assert_called_once()
   call_args = mock_post.call_args
-  assert call_args[0][0] == client.api_url
+  # URL should be from server pool (http://localhost:11434/api/generate)
+  assert '/api/generate' in call_args[0][0]
   request_body = call_args[1]['json']
   assert request_body['model'] == 'llama3'
   assert request_body['prompt'] == 'User prompt'

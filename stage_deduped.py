@@ -33,7 +33,10 @@ class DedupedProcessor(StageProcessor):
       config_module=config
     )
     self.logger = get_logger("DedupedProcessor")
-    self.ollama_client = OllamaClient(config.OLLAMA_CLEANLINESS_CHECK)
+    self.ollama_client = OllamaClient(
+      config.OLLAMA_CLEANLINESS_CHECK,
+      stage_name="cleanliness_check"
+    )
     self.min_confidence = config.CLEANLINESS_MIN_CONFIDENCE
 
   def process_file(
@@ -149,5 +152,13 @@ class DedupedProcessor(StageProcessor):
 
 
 if __name__ == '__main__':
-  processor = DedupedProcessor()
-  processor.run()
+  from stage_utils import initialize_stage_environment, cleanup_stage_environment
+
+  # Initialize environment (server pool, signal handlers)
+  initialize_stage_environment()
+
+  try:
+    processor = DedupedProcessor()
+    processor.run()
+  finally:
+    cleanup_stage_environment()

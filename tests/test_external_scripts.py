@@ -127,31 +127,31 @@ class TestParseTfidfScore:
   def test_valid_output(self):
     """Test parsing valid TF-IDF output."""
     output = "91 9278 A Meaningful New Year's Gesture"
-    score = parse_tfidf_score(output)
+    score, funny_id = parse_tfidf_score(output)
     assert score == 91
   
   def test_valid_output_with_newline(self):
     """Test parsing valid output with trailing newline."""
     output = "42 1234 Test Joke Title\n"
-    score = parse_tfidf_score(output)
+    score, funny_id = parse_tfidf_score(output)
     assert score == 42
   
   def test_valid_output_multiple_lines(self):
     """Test parsing output with multiple lines (uses first line)."""
     output = "85 5555 First Joke\n90 6666 Second Joke\n"
-    score = parse_tfidf_score(output)
+    score, funny_id = parse_tfidf_score(output)
     assert score == 85
   
   def test_score_zero(self):
     """Test parsing score of 0."""
     output = "0 1111 No Match"
-    score = parse_tfidf_score(output)
+    score, funny_id = parse_tfidf_score(output)
     assert score == 0
   
   def test_score_hundred(self):
     """Test parsing score of 100."""
     output = "100 2222 Perfect Match"
-    score = parse_tfidf_score(output)
+    score, funny_id = parse_tfidf_score(output)
     assert score == 100
   
   def test_empty_output(self):
@@ -187,5 +187,5 @@ class TestParseTfidfScore:
   def test_long_joke_title(self):
     """Test parsing with long joke title containing many words."""
     output = "75 8888 This Is A Very Long Joke Title With Many Words"
-    score = parse_tfidf_score(output)
+    score, funny_id = parse_tfidf_score(output)
     assert score == 75

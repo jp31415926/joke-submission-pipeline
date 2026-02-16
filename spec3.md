@@ -278,7 +278,7 @@ To get to the other side!
 
 * Logs include: start/stop timestamps, files processed, errors, skips
 * All log messages should prefix with Joke-ID when available
-* Success processing logged at INFO level
+* Success processing logged at DEBUG level
 * Logging paths configurable in `config.py`
 * Log verbosity set in `config.py`, default to INFO
 * **Log Rotation**: Out of scope for this version
@@ -511,7 +511,7 @@ TITLE_MIN_CONFIDENCE = 70  # 0-100
 OLLAMA_CLEANLINESS_CHECK = {
   'OLLAMA_API_URL': 'http://localhost:11434/api/generate',
   'OLLAMA_MODEL': 'qwen3:8b',
-  'OLLAMA_SYSTEM_PROMPT': 'You are a content moderator. Keep responses short.',
+  'OLLAMA_SYSTEM_PROMPT': 'You are a content moderator evaluating jokes for appropriateness',
   'OLLAMA_USER_PROMPT': '''Evaluate this joke for cleanliness:
 {content}
 
@@ -533,7 +533,7 @@ Respond ONLY with valid JSON:
 OLLAMA_FORMATTING = {
   'OLLAMA_API_URL': 'http://localhost:11434/api/generate',
   'OLLAMA_MODEL': 'qwen3:8b',
-  'OLLAMA_SYSTEM_PROMPT': 'You are an editor. Keep responses short.',
+  'OLLAMA_SYSTEM_PROMPT': 'You are an editor improving joke formatting and grammar. Always start with double quotes for quoted parts',
   'OLLAMA_USER_PROMPT': '''Improve grammar of this joke:
 {content}
 
@@ -554,7 +554,7 @@ OLLAMA_CATEGORIZATION = {
 Joke: {content}
 
 Respond ONLY with valid JSON:
-{{"categories": ["Cat1", "Cat2"], "confidence": 85, "reasoning": "explanation"}}''',
+{{"categories": ["Cat1", "Cat2"], "confidence": 85, "reason": "explanation"}}''',
   'OLLAMA_KEEP_ALIVE': 0,
   'OLLAMA_OPTIONS': {...}
 }

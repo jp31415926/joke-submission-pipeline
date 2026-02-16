@@ -81,7 +81,7 @@ class ParsedProcessor(StageProcessor):
       
       # Parse the duplicate score
       try:
-        score = parse_tfidf_score(stdout)
+        score, funny_id = parse_tfidf_score(stdout)
         logger.info(f"Duplicate score for Joke-ID {joke_id}: {score}")
       except ValueError as e:
         error_msg = f"Failed to parse TF-IDF score: {e}"
@@ -89,7 +89,7 @@ class ParsedProcessor(StageProcessor):
         return (False, headers, content, error_msg)
       
       # Add metadata to headers
-      headers['Duplicate-Score'] = str(score)
+      headers['Duplicate-Score'] = str(score) + ' ' + str(funny_id)
       headers['Duplicate-Threshold'] = str(config.DUPLICATE_THRESHOLD)
       
       # Check against threshold

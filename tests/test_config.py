@@ -59,6 +59,13 @@ def test_required_constants_present():
     assert hasattr(config, 'CATEGORIZATION_MIN_CONFIDENCE')
     assert hasattr(config, 'TITLE_MIN_CONFIDENCE')
 
+    # Ollama server pool
+    assert hasattr(config, 'OLLAMA_SERVERS')
+    assert hasattr(config, 'OLLAMA_LOCK_DIR')
+    assert hasattr(config, 'OLLAMA_LOCK_RETRY_WAIT')
+    assert hasattr(config, 'OLLAMA_LOCK_RETRY_MAX_ATTEMPTS')
+    assert hasattr(config, 'OLLAMA_LOCK_RETRY_JITTER')
+
     # Ollama configs (new structure)
     assert hasattr(config, 'OLLAMA_CLEANLINESS_CHECK')
     assert hasattr(config, 'OLLAMA_FORMATTING')
@@ -104,10 +111,16 @@ def test_data_types():
     # LOG_LEVEL should be a string
     assert isinstance(config.LOG_LEVEL, str)
 
+    # Ollama server pool config
+    assert isinstance(config.OLLAMA_SERVERS, list)
+    assert len(config.OLLAMA_SERVERS) > 0
+    assert isinstance(config.OLLAMA_LOCK_RETRY_WAIT, (int, float))
+    assert isinstance(config.OLLAMA_LOCK_RETRY_MAX_ATTEMPTS, int)
+    assert isinstance(config.OLLAMA_LOCK_RETRY_JITTER, (int, float))
+
     # Ollama configs should be dictionaries with required keys
     for ollama_cfg in [config.OLLAMA_CLEANLINESS_CHECK, config.OLLAMA_FORMATTING,
                        config.OLLAMA_CATEGORIZATION, config.OLLAMA_TITLE_GENERATION]:
-        assert 'OLLAMA_API_URL' in ollama_cfg
         assert 'OLLAMA_MODEL' in ollama_cfg
         assert 'OLLAMA_SYSTEM_PROMPT' in ollama_cfg
         assert 'OLLAMA_USER_PROMPT' in ollama_cfg
@@ -123,7 +136,6 @@ def test_valid_categories():
 def test_ollama_config_has_required_keys():
     """Test that ollama configs have all required keys."""
     required_keys = [
-        'OLLAMA_API_URL',
         'OLLAMA_MODEL',
         'OLLAMA_SYSTEM_PROMPT',
         'OLLAMA_USER_PROMPT',

@@ -2,6 +2,8 @@
 jokematch2/data/*
 .claude/
 logs/
+pipeline-main/
+pipeline-priority/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

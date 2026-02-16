@@ -79,7 +79,7 @@ def run_external_script(
     raise
 
 
-def parse_tfidf_score(output: str) -> int:
+def parse_tfidf_score(output: str) -> list:
   """
   Parse TF-IDF score from search_tfidf.py output.
   
@@ -90,7 +90,7 @@ def parse_tfidf_score(output: str) -> int:
     output (str): Output from search_tfidf.py
     
   Returns:
-    int: TF-IDF score (0-100)
+    list[int,int]: TF-IDF score (0-100) and funny_id
     
   Raises:
     ValueError: If output doesn't match expected format
@@ -112,6 +112,7 @@ def parse_tfidf_score(output: str) -> int:
   
   try:
     score = int(parts[0])
+    funny_id = int(parts[1])
   except ValueError:
     raise ValueError(
       f"Invalid TF-IDF score. Expected integer, got: '{parts[0]}'"
@@ -121,4 +122,4 @@ def parse_tfidf_score(output: str) -> int:
   if score < 0 or score > 100:
     logger.warning(f"TF-IDF score out of expected range (0-100): {score}")
   
-  return score
+  return [score, funny_id]

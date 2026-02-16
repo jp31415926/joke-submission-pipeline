@@ -9,6 +9,7 @@ import requests
 from typing import Dict, Optional, Tuple
 
 from logging_utils import get_logger
+from ollama_server_pool import get_server_pool
 
 logger = get_logger(__name__)
 
@@ -16,19 +17,21 @@ logger = get_logger(__name__)
 class OllamaClient:
   """Client for interacting with Ollama API."""
 
-  def __init__(self, ollama_config: Dict):
+  def __init__(self, ollama_config: Dict, stage_name: str = "unknown"):
     """
     Initialize Ollama client.
 
     Args:
       ollama_config: Configuration dictionary from config.py
+      stage_name: Name of the stage using this client (for logging)
     """
-    self.api_url = ollama_config['OLLAMA_API_URL']
+    self.stage_name = stage_name
     self.model = ollama_config['OLLAMA_MODEL']
     self.system_prompt = ollama_config.get('OLLAMA_SYSTEM_PROMPT', '')
     self.user_prompt_template = ollama_config.get('OLLAMA_USER_PROMPT', '')
     self.options = ollama_config.get('OLLAMA_OPTIONS', {})
-    self.keep_alive = ollama_config.get('OLLAMA_KEEP_ALIVE', 0)
+    self.keep_alive = ollama_config.get('OLLAMA_KEEP_ALIVE', '1m')
+    self.server_pool = get_server_pool()
 
   def generate(
     self,
@@ -37,7 +40,7 @@ class OllamaClient:
     timeout: int = 300
   ) -> str:
     """
-    Generate response from Ollama API.
+    Generate response from Ollama API using server pool.
 
     Args:
       system_prompt: System prompt for the LLM
@@ -49,34 +52,63 @@ class OllamaClient:
 
     Raises:
       requests.RequestException: On network errors
-      ValueError: On invalid JSON response
+      ValueError: On invalid JSON response or no server available
       TimeoutError: On timeout
     """
-    # Build request body
-    request_body = {
-      'model': self.model,
-      'prompt': user_prompt,
-      'system': system_prompt,
-      'stream': False,
-      'options': self.options,
-      'keep_alive': self.keep_alive
-    }
+    if self.server_pool is None:
+      raise ValueError(
+        "Server pool not initialized. Call initialize_server_pool() first."
+      )
 
-    # Log request (truncated)
-    logger.info(
-      f"Ollama request to {self.api_url} with model {self.model}"
+    # Acquire a server from the pool
+    lock, server_url = self.server_pool.acquire_server(
+      model_name=self.model,
+      stage_name=self.stage_name
     )
-    logger.debug(
-      f"System prompt: {system_prompt[:100]}..."
-    )
-    logger.debug(
-      f"User prompt: {user_prompt[:200]}..."
-    )
+
+    if lock is None or server_url is None:
+      if lock is None:
+        raise ValueError(
+          f"No lock file returned for model {self.model}. "
+          f"All servers busy or model not found."
+        )
+      else:
+        raise ValueError(
+          f"No URL returned for model {self.model}. "
+          f"All servers busy or model not found."
+        )
 
     try:
+      # Build API URL from server URL
+      api_url = server_url
+      if not api_url.endswith('/api/generate'):
+        api_url = f"{api_url}/api/generate"
+
+      # Build request body
+      request_body = {
+        'model': self.model,
+        'prompt': user_prompt,
+        'system': system_prompt,
+        'stream': False,
+        'think': False,
+        'options': self.options,
+        'keep_alive': self.keep_alive
+      }
+
+      # Log request (truncated)
+      logger.info(
+        f"Ollama request to {api_url} with model {self.model}"
+      )
+      logger.debug(
+        f"System prompt: {system_prompt[:100]}..."
+      )
+      logger.debug(
+        f"User prompt: {user_prompt}..."
+      )
+
       # POST to Ollama API
       response = requests.post(
-        self.api_url,
+        api_url,
         json=request_body,
         headers={'Content-Type': 'application/json'},
         timeout=timeout
@@ -109,7 +141,7 @@ class OllamaClient:
         f"Ollama response received ({len(response_text)} chars)"
       )
       logger.debug(
-        f"Response: {response_text[:200]}..."
+        f"Response: {response_text}..."
       )
 
       return response_text
@@ -121,6 +153,10 @@ class OllamaClient:
       logger.error(f"Network error calling Ollama: {e}")
       raise
 
+    finally:
+      # Always release the lock
+      lock.release()
+
   def parse_structured_response(
     self,
     response_text: str,
@@ -130,6 +166,7 @@ class OllamaClient:
     Parse structured response from LLM.
 
     Attempts to parse as JSON first, then falls back to key-value parsing.
+    Handles JSON wrapped in markdown code blocks (```json ... ```).
 
     Args:
       response_text: Response text from LLM
@@ -140,9 +177,23 @@ class OllamaClient:
     """
     result = {}
 
+    # Strip markdown code blocks if present
+    # Handles: ```json\n...\n```, ```JSON\n...\n```, or ```\n...\n```
+    cleaned_text = response_text.strip()
+    if cleaned_text.startswith('```'):
+      # Find the end of the opening fence (first newline after ```)
+      first_newline = cleaned_text.find('\n')
+      if first_newline != -1:
+        # Find the closing fence
+        closing_fence = cleaned_text.rfind('```')
+        if closing_fence > first_newline:
+          # Extract content between fences
+          cleaned_text = cleaned_text[first_newline + 1:closing_fence].strip()
+          logger.debug("Stripped markdown code block from response")
+
     # Try parsing as JSON first
     try:
-      data = json.loads(response_text)
+      data = json.loads(cleaned_text)
       if isinstance(data, dict):
         for key in expected_keys:
           # Try exact match first
@@ -167,7 +218,7 @@ class OllamaClient:
         rf'^{re.escape(key)}:\s*(.+)$',
         re.IGNORECASE | re.MULTILINE
       )
-      match = pattern.search(response_text)
+      match = pattern.search(cleaned_text)
       if match:
         result[key] = match.group(1).strip()
 

@@ -99,7 +99,7 @@ def create_test_joke(joke_dir, joke_id, content):
 
 def test_below_threshold(temp_pipeline_dirs, mock_tfidf_script):
   """Test joke with duplicate score below threshold passes."""
-  # Set mock score to 30 (below threshold of 70)
+  # Set mock score to 30 (below threshold of 60)
   os.environ['MOCK_SCORE'] = '30'
   
   # Create test joke
@@ -121,9 +121,10 @@ def test_below_threshold(temp_pipeline_dirs, mock_tfidf_script):
   # Verify metadata
   deduped_file = os.path.join(temp_pipeline_dirs['deduped'], deduped_files[0])
   headers, _ = parse_joke_file(deduped_file)
-  
-  assert headers['Duplicate-Score'] == '30'
-  assert headers['Duplicate-Threshold'] == '70'
+
+  # Duplicate-Score format is "score funny_id"
+  assert headers['Duplicate-Score'].startswith('30 ')
+  assert headers['Duplicate-Threshold'] == '60'
   assert headers['Pipeline-Stage'] == config.STAGES["deduped"]
   
   # Check rejected directory has no files (only tmp dir)
@@ -137,8 +138,8 @@ def test_below_threshold(temp_pipeline_dirs, mock_tfidf_script):
 
 def test_at_threshold(temp_pipeline_dirs, mock_tfidf_script):
   """Test joke with duplicate score exactly at threshold is rejected."""
-  # Set mock score to 70 (at threshold)
-  os.environ['MOCK_SCORE'] = '70'
+  # Set mock score to 60 (at threshold)
+  os.environ['MOCK_SCORE'] = '60'
   
   # Create test joke
   joke_file = create_test_joke(
@@ -159,11 +160,12 @@ def test_at_threshold(temp_pipeline_dirs, mock_tfidf_script):
   # Verify metadata
   rejected_file = os.path.join(temp_pipeline_dirs['rejected'], rejected_files[0])
   headers, _ = parse_joke_file(rejected_file)
-  
-  assert headers['Duplicate-Score'] == '70'
-  assert headers['Duplicate-Threshold'] == '70'
+
+  # Duplicate-Score format is "score funny_id"
+  assert headers['Duplicate-Score'].startswith('60 ')
+  assert headers['Duplicate-Threshold'] == '60'
   assert headers['Pipeline-Stage'] == config.REJECTS["duplicate"]
-  assert 'Duplicate score 70 >= threshold 70' in headers['Rejection-Reason']
+  assert 'Duplicate score 60 >= threshold 60' in headers['Rejection-Reason']
   
   # Check deduped directory has no files
   deduped_files = [f for f in os.listdir(temp_pipeline_dirs['deduped'])
@@ -176,7 +178,7 @@ def test_at_threshold(temp_pipeline_dirs, mock_tfidf_script):
 
 def test_above_threshold(temp_pipeline_dirs, mock_tfidf_script):
   """Test joke with duplicate score above threshold is rejected."""
-  # Set mock score to 95 (well above threshold)
+  # Set mock score to 95 (well above threshold of 60)
   os.environ['MOCK_SCORE'] = '95'
   
   # Create test joke
@@ -198,11 +200,12 @@ def test_above_threshold(temp_pipeline_dirs, mock_tfidf_script):
   # Verify metadata
   rejected_file = os.path.join(temp_pipeline_dirs['rejected'], rejected_files[0])
   headers, _ = parse_joke_file(rejected_file)
-  
-  assert headers['Duplicate-Score'] == '95'
-  assert headers['Duplicate-Threshold'] == '70'
+
+  # Duplicate-Score format is "score funny_id"
+  assert headers['Duplicate-Score'].startswith('95 ')
+  assert headers['Duplicate-Threshold'] == '60'
   assert headers['Pipeline-Stage'] == config.REJECTS["duplicate"]
-  assert 'Duplicate score 95 >= threshold 70' in headers['Rejection-Reason']
+  assert 'Duplicate score 95 >= threshold 60' in headers['Rejection-Reason']
   
   # Cleanup env
   del os.environ['MOCK_SCORE']
@@ -232,10 +235,11 @@ def test_metadata_updates(temp_pipeline_dirs, mock_tfidf_script):
   # Verify metadata exists and has correct values
   deduped_file = os.path.join(temp_pipeline_dirs['deduped'], deduped_files[0])
   headers, _ = parse_joke_file(deduped_file)
-  
+
   assert 'Duplicate-Score' in headers
   assert 'Duplicate-Threshold' in headers
-  assert headers['Duplicate-Score'] == '50'
+  # Duplicate-Score format is "score funny_id"
+  assert headers['Duplicate-Score'].startswith('50 ')
   assert headers['Duplicate-Threshold'] == str(config.DUPLICATE_THRESHOLD)
   
   # Cleanup env
@@ -312,8 +316,8 @@ def test_multiple_jokes(temp_pipeline_dirs, mock_tfidf_script):
 
 def test_edge_case_threshold_minus_one(temp_pipeline_dirs, mock_tfidf_script):
   """Test joke with score just below threshold passes."""
-  # Set mock score to 69 (just below threshold of 70)
-  os.environ['MOCK_SCORE'] = '69'
+  # Set mock score to 59 (just below threshold of 60)
+  os.environ['MOCK_SCORE'] = '59'
   
   # Create test joke
   create_test_joke(

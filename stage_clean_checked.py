@@ -31,7 +31,10 @@ class CleanCheckedProcessor(StageProcessor):
       config_module=config
     )
     self.logger = get_logger("CleanCheckedProcessor")
-    self.ollama_client = OllamaClient(config.OLLAMA_FORMATTING)
+    self.ollama_client = OllamaClient(
+      config.OLLAMA_FORMATTING,
+      stage_name="formatting"
+    )
     self.min_confidence = config.CATEGORIZATION_MIN_CONFIDENCE
 
   def process_file(
@@ -137,5 +140,13 @@ class CleanCheckedProcessor(StageProcessor):
 
 
 if __name__ == '__main__':
-  processor = CleanCheckedProcessor()
-  processor.run()
+  from stage_utils import initialize_stage_environment, cleanup_stage_environment
+
+  # Initialize environment (server pool, signal handlers)
+  initialize_stage_environment()
+
+  try:
+    processor = CleanCheckedProcessor()
+    processor.run()
+  finally:
+    cleanup_stage_environment()

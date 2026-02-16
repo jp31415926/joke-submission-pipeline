@@ -142,14 +142,26 @@ The `external_scripts.py` module provides:
   - `CLEANLINESS_MIN_CONFIDENCE` (0-100)
   - `CATEGORIZATION_MIN_CONFIDENCE` (0-100)
   - `TITLE_MIN_CONFIDENCE` (0-100)
+- **Ollama Server Pool** (distributed LLM access with concurrency control):
+  - `OLLAMA_SERVERS`: List of server configs `[{"url": "...", "max_concurrent": 1}, ...]`
+  - `OLLAMA_LOCK_DIR`: Directory for lock files (default: `locks/ollama-servers`)
+  - `OLLAMA_LOCK_RETRY_WAIT`: Base wait time between retries (default: 5.0s)
+  - `OLLAMA_LOCK_RETRY_MAX_ATTEMPTS`: Max retry attempts (default: 12)
+  - `OLLAMA_LOCK_RETRY_JITTER`: Max random jitter to add to retry wait (default: 2.0s)
+  - Uses file-based locking with `fcntl.flock()` for cross-process coordination
+  - Automatically checks model availability on each server via `/api/tags`
+  - Implements retry with jitter and automatic stale lock cleanup
+  - Signal handlers (SIGINT/SIGTERM) clean up locks on exit
+  - See `OLLAMA_SERVER_POOL.md` for detailed documentation
 - **Ollama LLM configurations** (separate config for each stage):
   - `OLLAMA_CLEANLINESS_CHECK`: Cleanliness/appropriateness checking
   - `OLLAMA_FORMATTING`: Grammar and punctuation improvements
   - `OLLAMA_CATEGORIZATION`: Category assignment
   - `OLLAMA_TITLE_GENERATION`: Title generation
-  - Each contains: OLLAMA_API_URL, OLLAMA_MODEL, OLLAMA_SYSTEM_PROMPT, OLLAMA_USER_PROMPT, OLLAMA_KEEP_ALIVE, OLLAMA_OPTIONS
+  - Each contains: OLLAMA_MODEL, OLLAMA_SYSTEM_PROMPT, OLLAMA_USER_PROMPT, OLLAMA_KEEP_ALIVE, OLLAMA_OPTIONS
   - User prompts use format strings (e.g., `{content}`, `{categories}`, `{categories_list}`)
   - LLM responses expected in JSON format for proper multi-line handling
+  - LLM responses may be wrapped in markdown code blocks (```json...```), which are automatically stripped
 - **Valid joke categories** (VALID_CATEGORIES): List of approved category names (Adult removed, not appropriate)
 - **Logging**: LOG_DIR, LOG_LEVEL (default: INFO)
 
