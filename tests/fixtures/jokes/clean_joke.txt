@@ -1,0 +1,11 @@
+Joke-ID: 12345678-1234-1234-1234-123456789abc
+Title: Colorful Meal
+Submitter: test@example.com
+Source-Email-File: test_email.txt
+Pipeline-Stage: 03_deduped
+Duplicate-Score: 25
+Duplicate-Threshold: 70
+
+Over dinner, I explained the health benefits of a colorful meal to my family. "The more colors, the more variety of nutrients," I told them. Pointing to our food, I asked, "How many different colors do you see?"
+
+"Six," volunteered my daughter. "Seven if you count the burned parts."

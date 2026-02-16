@@ -1,0 +1,17 @@
+Joke-ID: 87654321-4321-4321-4321-cba987654321
+Title: The Doctor's Visit
+Submitter: test@example.com
+Source-Email-File: test_email2.txt
+Pipeline-Stage: 03_deduped
+Duplicate-Score: 30
+Duplicate-Threshold: 70
+
+A man went to the doctor and said, "Doctor, I think I'm a moth."
+
+The doctor replied, "You don't need a doctor, you need a psychiatrist."
+
+The man said, "I know."
+
+"Then why did you come here?" asked the doctor.
+
+The man replied, "Your light was on."
