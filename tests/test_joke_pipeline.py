@@ -831,3 +831,142 @@ def test_tmp_directory_created_if_missing(setup_full_pipeline):
 
     # tmp directory should have been created
     assert os.path.exists(tmp_dir), "tmp directory should be created"
+
+
+def test_processing_file_created_and_deleted(setup_full_pipeline):
+  """Test that PROCESSING file is created during processing and deleted after."""
+  env = setup_full_pipeline
+
+  # Create a test file
+  joke_file = os.path.join(
+    env['pipeline_main'],
+    '02_parsed',
+    'test_joke.txt'
+  )
+  headers = {
+    'Joke-ID': '12345678-1234-1234-1234-123456789012',
+    'Title': 'Test Joke',
+    'Submitter': 'test@example.com',
+    'Pipeline-Stage': '02_parsed'
+  }
+  write_joke_file(joke_file, headers, 'Test content')
+
+  processing_file_path = os.path.join(
+    env['pipeline_main'],
+    '02_parsed',
+    'tmp',
+    'PROCESSING'
+  )
+
+  # Track PROCESSING file status
+  processing_file_existed = [False]
+  processing_file_content = [None]
+
+  # Mock TF-IDF to check PROCESSING file during processing
+  original_run_external_script = None
+  try:
+    import stage_parsed
+    original_run_external_script = stage_parsed.run_external_script
+
+    def mock_tfidf_check(*args, **kwargs):
+      # Check if PROCESSING file exists during processing
+      if os.path.exists(processing_file_path):
+        processing_file_existed[0] = True
+        with open(processing_file_path, 'r') as f:
+          processing_file_content[0] = f.read()
+      return (0, '25 1234 Different Joke', '')
+
+    stage_parsed.run_external_script = mock_tfidf_check
+
+    # Run parsed stage
+    pipeline_module = import_joke_pipeline()
+    pipeline_module.run_pipeline(pipeline_type="main", stage_only="parsed")
+
+    # PROCESSING file should have existed during processing
+    assert processing_file_existed[0], "PROCESSING file should exist during processing"
+    assert processing_file_content[0] == '12345678-1234-1234-1234-123456789012', \
+      "PROCESSING file should contain joke ID"
+
+    # PROCESSING file should be deleted after processing
+    assert not os.path.exists(processing_file_path), \
+      "PROCESSING file should be deleted after processing"
+
+  finally:
+    # Restore original function
+    if original_run_external_script:
+      stage_parsed.run_external_script = original_run_external_script
+
+
+def test_status_displays_processing_id(setup_full_pipeline):
+  """Test that --status displays the processing joke ID."""
+  env = setup_full_pipeline
+
+  # Create a test file
+  joke_file = os.path.join(
+    env['pipeline_main'],
+    '02_parsed',
+    'test_joke.txt'
+  )
+  headers = {
+    'Joke-ID': 'abcdefgh-1234-5678-9abc-def123456789',
+    'Title': 'Test Joke',
+    'Submitter': 'test@example.com',
+    'Pipeline-Stage': '02_parsed'
+  }
+  write_joke_file(joke_file, headers, 'Test content')
+
+  # Create a PROCESSING file to simulate active processing
+  processing_file = os.path.join(
+    env['pipeline_main'],
+    '02_parsed',
+    'tmp',
+    'PROCESSING'
+  )
+  os.makedirs(os.path.dirname(processing_file), exist_ok=True)
+  with open(processing_file, 'w') as f:
+    f.write('abcdefgh-1234-5678-9abc-def123456789')
+
+  # Import pipeline module and call show_status
+  pipeline_module = import_joke_pipeline()
+
+  # Capture stdout
+  import io
+  import sys
+  captured_output = io.StringIO()
+  sys.stdout = captured_output
+
+  try:
+    pipeline_module.show_status()
+    output = captured_output.getvalue()
+
+    # Should contain formatted joke ID (first5...last5)
+    assert 'abcde...56789' in output, "Status should show formatted processing ID"
+
+    # Should show separate Main and Priority sections
+    assert 'Main Pipeline:' in output
+    assert 'Priority Pipeline:' in output
+
+  finally:
+    sys.stdout = sys.__stdout__
+    # Clean up PROCESSING file
+    if os.path.exists(processing_file):
+      os.remove(processing_file)
+
+
+def test_format_joke_id():
+  """Test joke ID formatting function."""
+  pipeline_module = import_joke_pipeline()
+
+  # Test long ID
+  long_id = 'abcdefgh-1234-5678-9abc-def123456789'
+  assert pipeline_module.format_joke_id(long_id) == 'abcde...56789'
+
+  # Test short ID
+  short_id = 'abc123'
+  assert pipeline_module.format_joke_id(short_id) == 'abc123'
+
+  # Test None
+  assert pipeline_module.format_joke_id(None) == ''
+
+  # Test empty string
+  assert pipeline_module.format_joke_id('') == ''

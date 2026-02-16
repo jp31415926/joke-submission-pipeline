@@ -99,6 +99,45 @@ def format_age(timestamp: Optional[float]) -> str:
     return f"{days}d ago"
 
 
+def format_joke_id(joke_id: Optional[str]) -> str:
+  """
+  Format joke ID as first5...last5.
+
+  Args:
+    joke_id: Joke ID string or None
+
+  Returns:
+    Formatted joke ID (e.g., "abc12...def89") or empty string
+  """
+  if not joke_id or len(joke_id) == 0:
+    return ""
+
+  if len(joke_id) <= 13:  # If short enough, just return it
+    return joke_id
+
+  return f"{joke_id[:5]}...{joke_id[-5:]}"
+
+
+def get_processing_id(directory_path: str) -> Optional[str]:
+  """
+  Read the joke ID from the PROCESSING file in tmp/ subdirectory.
+
+  Args:
+    directory_path: Path to the stage directory
+
+  Returns:
+    Joke ID being processed or None
+  """
+  processing_file = os.path.join(directory_path, 'tmp', 'PROCESSING')
+  try:
+    if os.path.exists(processing_file):
+      with open(processing_file, 'r', encoding='utf-8') as f:
+        return f.read().strip()
+  except (FileNotFoundError, OSError, PermissionError):
+    pass
+  return None
+
+
 def show_status() -> None:
   """Display pipeline status information."""
   # Collect all stage and reject directories
@@ -111,12 +150,15 @@ def show_status() -> None:
   # Sort alphabetically by directory name
   sorted_dirs = sorted(all_dirs.keys())
 
-  # Collect status for all directories
-  status_data = []
+  # Calculate max stage name length for column width
+  max_name_len = max(len(dir_name) for dir_name in sorted_dirs)
+  name_col_width = max_name_len + 2
+
+  # Collect status for both pipelines
+  main_status_data = []
+  priority_status_data = []
   total_main = 0
   total_priority = 0
-  overall_oldest = None
-  overall_oldest_info = None
 
   for dir_name in sorted_dirs:
     main_dir = os.path.join(config.PIPELINE_MAIN, dir_name)
@@ -124,94 +166,65 @@ def show_status() -> None:
 
     main_count, main_oldest = get_directory_status(main_dir)
     priority_count, priority_oldest = get_directory_status(priority_dir)
+    main_processing = get_processing_id(main_dir)
+    priority_processing = get_processing_id(priority_dir)
 
     total_main += main_count
     total_priority += priority_count
 
-    # Determine which pipeline has the oldest file
-    oldest_age = None
-    oldest_pipeline = None
-    if main_oldest and priority_oldest:
-      if main_oldest < priority_oldest:
-        oldest_age = main_oldest
-        oldest_pipeline = "M"
-      else:
-        oldest_age = priority_oldest
-        oldest_pipeline = "P"
-    elif main_oldest:
-      oldest_age = main_oldest
-      oldest_pipeline = "M"
-    elif priority_oldest:
-      oldest_age = priority_oldest
-      oldest_pipeline = "P"
-
-    # Track overall oldest
-    if oldest_age:
-      if overall_oldest is None or oldest_age < overall_oldest:
-        overall_oldest = oldest_age
-        overall_oldest_info = (dir_name, oldest_pipeline)
-
-    status_data.append({
+    main_status_data.append({
       'dir': dir_name,
-      'main_count': main_count,
-      'priority_count': priority_count,
-      'oldest_age': oldest_age,
-      'oldest_pipeline': oldest_pipeline
+      'count': main_count,
+      'oldest': main_oldest,
+      'processing': main_processing
     })
 
-  # Check tmp directories for in-progress files
-  main_tmp = 0
-  priority_tmp = 0
-  for stage_dir in config.STAGES.values():
-    main_tmp_dir = os.path.join(config.PIPELINE_MAIN, stage_dir, 'tmp')
-    priority_tmp_dir = os.path.join(config.PIPELINE_PRIORITY, stage_dir, 'tmp')
+    priority_status_data.append({
+      'dir': dir_name,
+      'count': priority_count,
+      'oldest': priority_oldest,
+      'processing': priority_processing
+    })
 
-    try:
-      if os.path.exists(main_tmp_dir):
-        main_tmp += len([f for f in os.listdir(main_tmp_dir)
-                         if f.endswith('.txt')])
-    except (FileNotFoundError, OSError, PermissionError):
-      # Directory was moved/deleted or is inaccessible
-      pass
-
-    try:
-      if os.path.exists(priority_tmp_dir):
-        priority_tmp += len([f for f in os.listdir(priority_tmp_dir)
-                             if f.endswith('.txt')])
-    except (FileNotFoundError, OSError, PermissionError):
-      # Directory was moved/deleted or is inaccessible
-      pass
-
-  # Print status
+  # Print header
   print("Joke Pipeline Status")
   print("=" * 80)
-  print(f"{'Stage':<28} {'Main':>6} {'Prior':>6}  {'Oldest':<15}")
-  print("-" * 80)
-
-  for item in status_data:
-    if item['oldest_age']:
-      oldest_str = f"{format_age(item['oldest_age'])} ({item['oldest_pipeline']})"
-    else:
-      oldest_str = "-"
-
-    print(f"{item['dir']:<28} {item['main_count']:>6} "
-          f"{item['priority_count']:>6}  {oldest_str:<15}")
-
-  print("-" * 80)
-  print(f"{'Totals:':<28} {total_main:>6} {total_priority:>6}")
-  print()
-  print(f"In Progress (tmp/):  Main: {main_tmp}  Priority: {priority_tmp}")
   print()
 
+  # Print Main Pipeline
+  print("Main Pipeline:")
+  header = f"{'Stage':<{name_col_width}}  {'Count':>5}  {'Processing':<18}  {'Oldest':<15}"
+  print(header)
+  print("-" * len(header))
+
+  for item in main_status_data:
+    count_str = f"{item['count']:>5}"
+    processing_str = f"{format_joke_id(item['processing']):<18}"
+    oldest_str = f"{format_age(item['oldest']):<15}"
+    print(f"{item['dir']:<{name_col_width}}  {count_str}  {processing_str}  {oldest_str}")
+
+  print("-" * len(header))
+  print(f"{'Total:':<{name_col_width}}  {total_main:>5}")
+  print()
+
+  # Print Priority Pipeline
+  print("Priority Pipeline:")
+  print(header)
+  print("-" * len(header))
+
+  for item in priority_status_data:
+    count_str = f"{item['count']:>5}"
+    processing_str = f"{format_joke_id(item['processing']):<18}"
+    oldest_str = f"{format_age(item['oldest']):<15}"
+    print(f"{item['dir']:<{name_col_width}}  {count_str}  {processing_str}  {oldest_str}")
+
+  print("-" * len(header))
+  print(f"{'Total:':<{name_col_width}}  {total_priority:>5}")
+  print()
+
+  # Print overall summary
   total_files = total_main + total_priority
-  if overall_oldest:
-    oldest_label = overall_oldest_info[0]
-    oldest_pipe = "Main" if overall_oldest_info[1] == "M" else "Priority"
-    print(f"Overall: {total_files} files total")
-    print(f"Oldest file: {format_age(overall_oldest)} "
-          f"in {oldest_label}/{oldest_pipe}")
-  else:
-    print(f"Overall: {total_files} files total")
+  print(f"Overall: {total_files} files total ({total_main} main, {total_priority} priority)")
 
 
 def run_pipeline(pipeline_type: str = "both", stage_only: Optional[str] = None):

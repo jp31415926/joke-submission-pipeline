@@ -138,49 +138,68 @@ class StageProcessor(ABC):
             # If we can't move to tmp, we can't safely process this file
             return
 
+        # Write joke ID to PROCESSING status file
+        processing_file = os.path.join(tmp_dir, 'PROCESSING')
+        try:
+            with open(processing_file, 'w', encoding='utf-8') as f:
+                f.write(joke_id)
+            self.logger.debug(f"Wrote processing status for Joke-ID: {joke_id}")
+        except Exception as e:
+            self.logger.warning(f"Failed to write PROCESSING file: {e} (Joke-ID: {joke_id})")
+            # Continue processing even if we can't write the status file
+
         retries = 0
         max_retries = self.config.MAX_RETRIES
 
-        while retries <= max_retries:
-            try:
-                # Read the file
-                headers, content = parse_joke_file(filepath)
-                
-                # Call the abstract process function
-                success, updated_headers, updated_content, reject_reason = self.process_file(filepath, headers, content)
-                
-                if success:
-                    self._move_to_output(filepath, updated_headers, updated_content)
-                    self.logger.info(f"Successfully processed file {filepath} (Joke-ID: {joke_id})")
-                    return
-                else:
-                    # If not successful, check if we've exhausted retries
+        try:
+            while retries <= max_retries:
+                try:
+                    # Read the file
+                    headers, content = parse_joke_file(filepath)
+
+                    # Call the abstract process function
+                    success, updated_headers, updated_content, reject_reason = self.process_file(filepath, headers, content)
+
+                    if success:
+                        self._move_to_output(filepath, updated_headers, updated_content)
+                        self.logger.info(f"Successfully processed file {filepath} (Joke-ID: {joke_id})")
+                        return
+                    else:
+                        # If not successful, check if we've exhausted retries
+                        if retries < max_retries:
+                            retries += 1
+                            self.logger.warning(f"Processing failed for {filepath} (Joke-ID: {joke_id}), retry {retries}/{max_retries}")
+                        else:
+                            # Final failure - move to reject directory
+                            self._move_to_reject(filepath, headers, content, reject_reason)
+                            self.logger.error(f"Processing failed after {max_retries} retries for {filepath} (Joke-ID: {joke_id}). Reason: {reject_reason}")
+                            return
+
+                except Exception as e:
+                    # If exception occurs, check if we can retry
                     if retries < max_retries:
                         retries += 1
-                        self.logger.warning(f"Processing failed for {filepath} (Joke-ID: {joke_id}), retry {retries}/{max_retries}")
+                        self.logger.warning(f"Exception in processing {filepath} (Joke-ID: {joke_id}), retry {retries}/{max_retries}: {e}")
                     else:
                         # Final failure - move to reject directory
-                        self._move_to_reject(filepath, headers, content, reject_reason)
-                        self.logger.error(f"Processing failed after {max_retries} retries for {filepath} (Joke-ID: {joke_id}). Reason: {reject_reason}")
+                        # If headers is not defined at this point (due to exception during parse), we still need to handle this
+                        try:
+                            headers, content = parse_joke_file(filepath)
+                        except:
+                            # At this point, we don't have working headers so we make placeholders
+                            headers = {}
+                            content = ""
+                        self._move_to_reject(filepath, headers, content, f"Exception occurred: {e}")
+                        self.logger.error(f"Exception in processing {filepath} (Joke-ID: {joke_id}) after {max_retries} retries: {e}")
                         return
-                        
-            except Exception as e:
-                # If exception occurs, check if we can retry
-                if retries < max_retries:
-                    retries += 1
-                    self.logger.warning(f"Exception in processing {filepath} (Joke-ID: {joke_id}), retry {retries}/{max_retries}: {e}")
-                else:
-                    # Final failure - move to reject directory
-                    # If headers is not defined at this point (due to exception during parse), we still need to handle this
-                    try:
-                        headers, content = parse_joke_file(filepath)
-                    except:
-                        # At this point, we don't have working headers so we make placeholders
-                        headers = {}
-                        content = ""
-                    self._move_to_reject(filepath, headers, content, f"Exception occurred: {e}")
-                    self.logger.error(f"Exception in processing {filepath} (Joke-ID: {joke_id}) after {max_retries} retries: {e}")
-                    return
+        finally:
+            # Always delete PROCESSING file when done
+            if os.path.exists(processing_file):
+                try:
+                    os.remove(processing_file)
+                    self.logger.debug(f"Deleted processing status for Joke-ID: {joke_id}")
+                except Exception as e:
+                    self.logger.warning(f"Failed to delete PROCESSING file: {e} (Joke-ID: {joke_id})")
         
     def _move_to_output(self, filepath: str, headers: Dict[str, str], content: str):
         """
