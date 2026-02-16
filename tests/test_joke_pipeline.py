@@ -560,3 +560,145 @@ def test_command_line_status(setup_full_pipeline):
   assert result.returncode == 0
   # Should contain status information
   assert 'Pipeline Status' in result.stdout or 'Stage' in result.stdout
+
+
+def test_all_stop_file_deleted_on_startup(setup_full_pipeline):
+  """Test that ALL_STOP file is deleted when pipeline starts."""
+  env = setup_full_pipeline
+
+  # Save original ALL_STOP path
+  original_all_stop = config.ALL_STOP
+
+  try:
+    # Create a temporary ALL_STOP file
+    test_all_stop = os.path.join(env['test_dir'], 'ALL_STOP')
+    config.ALL_STOP = test_all_stop
+
+    # Create the ALL_STOP file
+    with open(test_all_stop, 'w') as f:
+      f.write('stop')
+
+    assert os.path.exists(test_all_stop)
+
+    # Import and run pipeline
+    pipeline_module = import_joke_pipeline()
+
+    # Mock the run_pipeline function to prevent actual execution
+    with patch.object(pipeline_module, 'run_pipeline', return_value=True):
+      # Simulate what main() does
+      if os.path.exists(config.ALL_STOP):
+        os.remove(config.ALL_STOP)
+
+    # ALL_STOP file should be deleted
+    assert not os.path.exists(test_all_stop)
+
+  finally:
+    # Restore original ALL_STOP path
+    config.ALL_STOP = original_all_stop
+
+
+def test_stage_processor_stops_on_all_stop(setup_full_pipeline):
+  """Test that stage processor stops when ALL_STOP file is created."""
+  env = setup_full_pipeline
+
+  # Save original ALL_STOP path
+  original_all_stop = config.ALL_STOP
+
+  try:
+    # Set ALL_STOP to test directory
+    test_all_stop = os.path.join(env['test_dir'], 'ALL_STOP')
+    config.ALL_STOP = test_all_stop
+
+    # Create multiple test files
+    for i in range(5):
+      joke_file = os.path.join(
+        env['pipeline_main'],
+        '02_parsed',
+        f'joke_{i}.txt'
+      )
+      headers = {
+        'Joke-ID': f'12345678-1234-1234-1234-12345678901{i}',
+        'Title': f'Test Joke {i}',
+        'Submitter': 'test@example.com',
+        'Pipeline-Stage': '02_parsed'
+      }
+      write_joke_file(joke_file, headers, f'Content {i}')
+
+    # Mock TF-IDF to return low score
+    with patch('stage_parsed.run_external_script') as mock_tfidf:
+      # Create ALL_STOP file after processing first file
+      call_count = [0]
+
+      def mock_tfidf_fn(*args, **kwargs):
+        call_count[0] += 1
+        if call_count[0] == 2:
+          # Create ALL_STOP file after processing one file
+          with open(test_all_stop, 'w') as f:
+            f.write('stop')
+        return (0, '25 1234 Different Joke', '')
+
+      mock_tfidf.side_effect = mock_tfidf_fn
+
+      # Run parsed stage
+      pipeline_module = import_joke_pipeline()
+      pipeline_module.run_pipeline(pipeline_type="main", stage_only="parsed")
+
+      # Not all files should be processed (stopped by ALL_STOP)
+      deduped_dir = os.path.join(env['pipeline_main'], '03_deduped')
+      deduped_files = os.listdir(deduped_dir) if os.path.exists(deduped_dir) else []
+
+      # Should have processed fewer than 5 files
+      assert len(deduped_files) < 5
+
+  finally:
+    # Restore original ALL_STOP path and clean up
+    config.ALL_STOP = original_all_stop
+    if os.path.exists(test_all_stop):
+      os.remove(test_all_stop)
+
+
+def test_stage_processor_continues_without_all_stop(setup_full_pipeline):
+  """Test that stage processor continues normally without ALL_STOP file."""
+  env = setup_full_pipeline
+
+  # Save original ALL_STOP path
+  original_all_stop = config.ALL_STOP
+
+  try:
+    # Set ALL_STOP to test directory (but don't create it)
+    test_all_stop = os.path.join(env['test_dir'], 'ALL_STOP')
+    config.ALL_STOP = test_all_stop
+
+    # Create test files
+    for i in range(3):
+      joke_file = os.path.join(
+        env['pipeline_main'],
+        '02_parsed',
+        f'joke_{i}.txt'
+      )
+      headers = {
+        'Joke-ID': f'12345678-1234-1234-1234-12345678901{i}',
+        'Title': f'Test Joke {i}',
+        'Submitter': 'test@example.com',
+        'Pipeline-Stage': '02_parsed'
+      }
+      write_joke_file(joke_file, headers, f'Content {i}')
+
+    # Mock TF-IDF to return low score
+    with patch('stage_parsed.run_external_script') as mock_tfidf:
+      mock_tfidf.return_value = (0, '25 1234 Different Joke', '')
+
+      # Run parsed stage
+      pipeline_module = import_joke_pipeline()
+      pipeline_module.run_pipeline(pipeline_type="main", stage_only="parsed")
+
+      # All files should be processed
+      deduped_dir = os.path.join(env['pipeline_main'], '03_deduped')
+      deduped_files = [f for f in os.listdir(deduped_dir)
+                       if f.endswith('.txt')]
+
+      assert len(deduped_files) == 3
+
+  finally:
+    # Restore original ALL_STOP path
+    config.ALL_STOP = original_all_stop

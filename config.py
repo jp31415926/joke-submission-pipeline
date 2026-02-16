@@ -218,3 +218,7 @@ LOG_LEVEL = "INFO"
 
 # Error Handling
 MAX_RETRIES = 0  # Retry twice (3 total attempts)
+
+# Emergency Stop
+# Create this file to gracefully stop all stage processing
+ALL_STOP = os.path.join(os.path.dirname(__file__), "ALL_STOP")
