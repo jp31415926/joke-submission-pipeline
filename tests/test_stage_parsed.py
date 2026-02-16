@@ -113,9 +113,10 @@ def test_below_threshold(temp_pipeline_dirs, mock_tfidf_script):
   processor = ParsedProcessor()
   processor.run()
   
-  # Check file moved to deduped
-  deduped_files = os.listdir(temp_pipeline_dirs['deduped'])
-  assert len(deduped_files) == 1
+  # Check file moved to deduped (filter out tmp and other directories)
+  deduped_files = [f for f in os.listdir(temp_pipeline_dirs['deduped']) 
+                   if os.path.isfile(os.path.join(temp_pipeline_dirs['deduped'], f))]
+  assert len(deduped_files) == 1, f"Expected 1 file in deduped, found {len(deduped_files)}: {deduped_files}"
   
   # Verify metadata
   deduped_file = os.path.join(temp_pipeline_dirs['deduped'], deduped_files[0])
@@ -125,8 +126,9 @@ def test_below_threshold(temp_pipeline_dirs, mock_tfidf_script):
   assert headers['Duplicate-Threshold'] == '70'
   assert headers['Pipeline-Stage'] == config.STAGES["deduped"]
   
-  # Check rejected directory is empty
-  rejected_files = os.listdir(temp_pipeline_dirs['rejected'])
+  # Check rejected directory has no files (only tmp dir)
+  rejected_files = [f for f in os.listdir(temp_pipeline_dirs['rejected'])
+                    if os.path.isfile(os.path.join(temp_pipeline_dirs['rejected'], f))]
   assert len(rejected_files) == 0
   
   # Cleanup env
@@ -149,9 +151,10 @@ def test_at_threshold(temp_pipeline_dirs, mock_tfidf_script):
   processor = ParsedProcessor()
   processor.run()
   
-  # Check file moved to rejected
-  rejected_files = os.listdir(temp_pipeline_dirs['rejected'])
-  assert len(rejected_files) == 1
+  # Check file moved to rejected (filter out tmp and other directories)
+  rejected_files = [f for f in os.listdir(temp_pipeline_dirs['rejected'])
+                    if os.path.isfile(os.path.join(temp_pipeline_dirs['rejected'], f))]
+  assert len(rejected_files) == 1, f"Expected 1 file in rejected, found {len(rejected_files)}: {rejected_files}"
   
   # Verify metadata
   rejected_file = os.path.join(temp_pipeline_dirs['rejected'], rejected_files[0])
@@ -162,8 +165,9 @@ def test_at_threshold(temp_pipeline_dirs, mock_tfidf_script):
   assert headers['Pipeline-Stage'] == config.REJECTS["duplicate"]
   assert 'Duplicate score 70 >= threshold 70' in headers['Rejection-Reason']
   
-  # Check deduped directory is empty
-  deduped_files = os.listdir(temp_pipeline_dirs['deduped'])
+  # Check deduped directory has no files
+  deduped_files = [f for f in os.listdir(temp_pipeline_dirs['deduped'])
+                   if os.path.isfile(os.path.join(temp_pipeline_dirs['deduped'], f))]
   assert len(deduped_files) == 0
   
   # Cleanup env
@@ -186,9 +190,10 @@ def test_above_threshold(temp_pipeline_dirs, mock_tfidf_script):
   processor = ParsedProcessor()
   processor.run()
   
-  # Check file moved to rejected
-  rejected_files = os.listdir(temp_pipeline_dirs['rejected'])
-  assert len(rejected_files) == 1
+  # Check file moved to rejected (filter out tmp and other directories)
+  rejected_files = [f for f in os.listdir(temp_pipeline_dirs['rejected'])
+                    if os.path.isfile(os.path.join(temp_pipeline_dirs['rejected'], f))]
+  assert len(rejected_files) == 1, f"Expected 1 file in rejected, found {len(rejected_files)}: {rejected_files}"
   
   # Verify metadata
   rejected_file = os.path.join(temp_pipeline_dirs['rejected'], rejected_files[0])
@@ -219,9 +224,10 @@ def test_metadata_updates(temp_pipeline_dirs, mock_tfidf_script):
   processor = ParsedProcessor()
   processor.run()
   
-  # Check file moved to deduped
-  deduped_files = os.listdir(temp_pipeline_dirs['deduped'])
-  assert len(deduped_files) == 1
+  # Check file moved to deduped (filter out tmp and other directories)
+  deduped_files = [f for f in os.listdir(temp_pipeline_dirs['deduped'])
+                   if os.path.isfile(os.path.join(temp_pipeline_dirs['deduped'], f))]
+  assert len(deduped_files) == 1, f"Expected 1 file in deduped, found {len(deduped_files)}: {deduped_files}"
   
   # Verify metadata exists and has correct values
   deduped_file = os.path.join(temp_pipeline_dirs['deduped'], deduped_files[0])
@@ -263,9 +269,10 @@ def test_search_tfidf_failure(temp_pipeline_dirs):
     processor = ParsedProcessor()
     processor.run()
     
-    # Check file moved to rejected
-    rejected_files = os.listdir(temp_pipeline_dirs['rejected'])
-    assert len(rejected_files) == 1
+    # Check file moved to rejected (filter out tmp and other directories)
+    rejected_files = [f for f in os.listdir(temp_pipeline_dirs['rejected'])
+                      if os.path.isfile(os.path.join(temp_pipeline_dirs['rejected'], f))]
+    assert len(rejected_files) == 1, f"Expected 1 file in rejected, found {len(rejected_files)}: {rejected_files}"
     
     # Verify rejection reason
     rejected_file = os.path.join(temp_pipeline_dirs['rejected'], rejected_files[0])
@@ -294,9 +301,10 @@ def test_multiple_jokes(temp_pipeline_dirs, mock_tfidf_script):
   processor = ParsedProcessor()
   processor.run()
   
-  # All should pass
-  deduped_files = os.listdir(temp_pipeline_dirs['deduped'])
-  assert len(deduped_files) == 3
+  # All should pass (filter out tmp and other directories)
+  deduped_files = [f for f in os.listdir(temp_pipeline_dirs['deduped'])
+                   if os.path.isfile(os.path.join(temp_pipeline_dirs['deduped'], f))]
+  assert len(deduped_files) == 3, f"Expected 3 files in deduped, found {len(deduped_files)}: {deduped_files}"
   
   # Cleanup env
   del os.environ['MOCK_SCORE']
@@ -318,12 +326,14 @@ def test_edge_case_threshold_minus_one(temp_pipeline_dirs, mock_tfidf_script):
   processor = ParsedProcessor()
   processor.run()
   
-  # Should pass
-  deduped_files = os.listdir(temp_pipeline_dirs['deduped'])
-  assert len(deduped_files) == 1
+  # Should pass (filter out tmp and other directories)
+  deduped_files = [f for f in os.listdir(temp_pipeline_dirs['deduped'])
+                   if os.path.isfile(os.path.join(temp_pipeline_dirs['deduped'], f))]
+  assert len(deduped_files) == 1, f"Expected 1 file in deduped, found {len(deduped_files)}: {deduped_files}"
   
   # Should not be rejected
-  rejected_files = os.listdir(temp_pipeline_dirs['rejected'])
+  rejected_files = [f for f in os.listdir(temp_pipeline_dirs['rejected'])
+                    if os.path.isfile(os.path.join(temp_pipeline_dirs['rejected'], f))]
   assert len(rejected_files) == 0
   
   # Cleanup env
