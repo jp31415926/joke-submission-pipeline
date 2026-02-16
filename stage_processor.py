@@ -175,19 +175,15 @@ class StageProcessor(ABC):
         # Get Joke-ID from headers for logging
         joke_id = headers.get('Joke-ID', 'unknown')
         
-        # Determine output directory
-        output_dir = os.path.join(self.config.PIPELINE_MAIN, self.output_stage)
-        if os.path.exists(os.path.join(self.config.PIPELINE_PRIORITY, self.input_stage)):
-            # If priority pipeline was processed, use priority output directory
-            output_dir = os.path.join(self.config.PIPELINE_PRIORITY, self.output_stage)
-            
+        # Determine output directory based on where the file currently is
+        # Files should stay in the same pipeline (main or priority)
+        if self.config.PIPELINE_PRIORITY in filepath:
+            final_output_dir = os.path.join(self.config.PIPELINE_PRIORITY, self.output_stage)
+        else:
+            final_output_dir = os.path.join(self.config.PIPELINE_MAIN, self.output_stage)
+
         # Write file atomically to output directory
         atomic_write(filepath, headers, content)
-        
-        # Move to final output directory
-        final_output_dir = os.path.join(self.config.PIPELINE_MAIN, self.output_stage)
-        if os.path.exists(os.path.join(self.config.PIPELINE_PRIORITY, self.input_stage)):
-            final_output_dir = os.path.join(self.config.PIPELINE_PRIORITY, self.output_stage)
             
         atomic_move(filepath, final_output_dir)
         
@@ -212,19 +208,15 @@ class StageProcessor(ABC):
         # Get Joke-ID from headers for logging
         joke_id = headers.get('Joke-ID', 'unknown')
         
-        # Determine reject directory
-        reject_dir = os.path.join(self.config.PIPELINE_MAIN, self.reject_stage)
-        if os.path.exists(os.path.join(self.config.PIPELINE_PRIORITY, self.input_stage)):
-            # If priority pipeline was processed, use priority reject directory
-            reject_dir = os.path.join(self.config.PIPELINE_PRIORITY, self.reject_stage)
-            
+        # Determine reject directory based on where the file currently is
+        # Files should stay in the same pipeline (main or priority)
+        if self.config.PIPELINE_PRIORITY in filepath:
+            final_reject_dir = os.path.join(self.config.PIPELINE_PRIORITY, self.reject_stage)
+        else:
+            final_reject_dir = os.path.join(self.config.PIPELINE_MAIN, self.reject_stage)
+
         # Write file atomically to reject directory
         atomic_write(filepath, headers, content)
-        
-        # Move to final reject directory
-        final_reject_dir = os.path.join(self.config.PIPELINE_MAIN, self.reject_stage)
-        if os.path.exists(os.path.join(self.config.PIPELINE_PRIORITY, self.input_stage)):
-            final_reject_dir = os.path.join(self.config.PIPELINE_PRIORITY, self.reject_stage)
             
         atomic_move(filepath, final_reject_dir)
         
