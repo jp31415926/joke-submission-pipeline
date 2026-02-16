@@ -36,12 +36,23 @@ def temp_pipeline_dirs():
   os.makedirs(deduped_dir)
   os.makedirs(rejected_dir)
   
+  # Also create tmp subdirectories as stage_processor expects
+  os.makedirs(os.path.join(parsed_dir, 'tmp'))
+  os.makedirs(os.path.join(deduped_dir, 'tmp'))
+  
+  # Create pipeline-priority structure (even if empty, to avoid path issues)
+  pipeline_priority = os.path.join(temp_dir, "pipeline-priority")
+  os.makedirs(pipeline_priority)
+  
   # Override config paths
   original_main = config.PIPELINE_MAIN
+  original_priority = config.PIPELINE_PRIORITY
   config.PIPELINE_MAIN = pipeline_main
+  config.PIPELINE_PRIORITY = pipeline_priority
   
   yield {
     'pipeline_main': pipeline_main,
+    'pipeline_priority': pipeline_priority,
     'parsed': parsed_dir,
     'deduped': deduped_dir,
     'rejected': rejected_dir
@@ -49,6 +60,7 @@ def temp_pipeline_dirs():
   
   # Restore original config
   config.PIPELINE_MAIN = original_main
+  config.PIPELINE_PRIORITY = original_priority
   
   # Cleanup
   shutil.rmtree(temp_dir)
