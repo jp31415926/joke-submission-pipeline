@@ -16,7 +16,6 @@ STAGES = {
     "clean_checked": "04_clean_checked",
     "formatted": "05_formatted",
     "categorized": "06_categorized",
-    "titled": "07_titled",
     "ready_for_review": "08_ready_for_review",
 }
 

@@ -31,8 +31,8 @@ def test_required_constants_present():
     assert 'clean_checked' in config.STAGES
     assert 'formatted' in config.STAGES
     assert 'categorized' in config.STAGES
-    assert 'titled' in config.STAGES
     assert 'ready_for_review' in config.STAGES
+    # Note: 'titled' was removed - stages 6 and 7 are combined in categorized
     
     # REJECTS dictionary
     assert hasattr(config, 'REJECTS')
