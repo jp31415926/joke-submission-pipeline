@@ -1,0 +1,11 @@
+Joke-ID: 66666666-7777-8888-9999-aaaaaaaaaaaa
+Title: Missing Fields
+Submitter: test@example.com
+Source-Email-File: test_email10.txt
+Pipeline-Stage: 06_categorized
+Duplicate-Score: 19
+Duplicate-Threshold: 70
+Cleanliness-Status: PASS
+Cleanliness-Confidence: 88
+
+This joke is missing the Categories and Format-Status fields, so it should fail validation.

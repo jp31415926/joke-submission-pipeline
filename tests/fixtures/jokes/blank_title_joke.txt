@@ -1,0 +1,15 @@
+Joke-ID: 55555555-6666-7777-8888-999999999999
+Title:
+Submitter: test@example.com
+Source-Email-File: test_email9.txt
+Pipeline-Stage: 06_categorized
+Duplicate-Score: 14
+Duplicate-Threshold: 70
+Cleanliness-Status: PASS
+Cleanliness-Confidence: 95
+Format-Status: PASS
+Format-Confidence: 90
+Categories: Science, Puns
+Category-Confidence: 89
+
+A photon checks into a hotel. The bellhop asks, "Do you have any luggage?" The photon replies, "No, I'm traveling light."

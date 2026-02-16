@@ -1,0 +1,15 @@
+Joke-ID: 44444444-5555-6666-7777-888888888888
+Title: The Calculator Romance
+Submitter: test@example.com
+Source-Email-File: test_email8.txt
+Pipeline-Stage: 06_categorized
+Duplicate-Score: 16
+Duplicate-Threshold: 70
+Cleanliness-Status: PASS
+Cleanliness-Confidence: 92
+Format-Status: PASS
+Format-Confidence: 88
+Categories: Puns, Relationships
+Category-Confidence: 87
+
+Why did the mathematician break up with his calculator? She was always trying to divide his interest, and he couldn't count on her anymore!
