@@ -1,0 +1,13 @@
+From: bob@example.com
+To: jokes@example.com
+Subject: joke
+Date: Sat, 15 Feb 2026 15:45:00 -0800
+Message-ID: <poorly-formatted-001@example.com>
+
+Title: bad joke
+
+why did the   chicken cross road???
+
+to get other side!!!!!
+
+no punctuation or   proper spacing  here

@@ -1,0 +1,13 @@
+From: dad@example.com
+To: jokes@example.com
+Subject: Classic Dad Joke
+Date: Sat, 15 Feb 2026 17:00:00 -0800
+Message-ID: <dad-joke-001@example.com>
+
+Title: The Graveyard
+
+Why do graveyards have fences?
+
+Because people are dying to get in!
+
+Classic dad joke material here.
