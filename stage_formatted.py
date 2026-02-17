@@ -40,12 +40,22 @@ class FormattedProcessor(StageProcessor):
     self.valid_categories = joke_categories.VALID_CATEGORIES
     self.max_categories = joke_categories.MAX_CATEGORIES_PER_JOKE
 
-  def _validate_categories(self, categories: List[str]) -> Tuple[bool, str, List[str]]:
+  def _validate_categories(
+    self,
+    categories: List[str],
+    joke_id: str = "unknown"
+  ) -> Tuple[bool, str, List[str]]:
     """
-    Validate category list.
+    Validate and filter category list.
+
+    Invalid categories (not in VALID_CATEGORIES) are dropped with a warning.
+    If the remaining valid categories exceed MAX_CATEGORIES_PER_JOKE, only the
+    first MAX_CATEGORIES_PER_JOKE are kept (the rest are dropped with a warning).
+    Rejects only if no valid categories remain after filtering.
 
     Args:
-      categories: List of category strings
+      categories: List of category strings from the LLM
+      joke_id: Joke ID for log messages
 
     Returns:
       Tuple of (valid: bool, error_message: str, validated_categories: List[str])
@@ -53,31 +63,38 @@ class FormattedProcessor(StageProcessor):
     if not categories:
       return (False, "No categories provided", [])
 
-    # Check category count
-    if len(categories) > self.max_categories:
-      return (
-        False,
-        f"Too many categories: {len(categories)} (max {self.max_categories})",
-        []
-      )
-
-    # Validate each category (case-insensitive)
-    validated = []
     valid_categories_lower = {cat.lower(): cat for cat in self.valid_categories}
 
+    # Filter out invalid categories, logging a warning for each
+    validated = []
+    invalid_cats = []
     for cat in categories:
       cat_stripped = cat.strip()
       cat_lower = cat_stripped.lower()
-
       if cat_lower in valid_categories_lower:
-        # Use the canonical capitalization
         validated.append(valid_categories_lower[cat_lower])
       else:
-        return (
-          False,
-          f"Invalid category '{cat_stripped}' (not in VALID_CATEGORIES)",
-          []
-        )
+        invalid_cats.append(cat_stripped)
+
+    if invalid_cats:
+      self.logger.warning(
+        f"Joke-ID {joke_id}: {len(invalid_cats)} suggested "
+        f"categor{'y' if len(invalid_cats) == 1 else 'ies'} not in "
+        f"VALID_CATEGORIES (ignored): {invalid_cats}"
+      )
+
+    if not validated:
+      return (False, "No valid categories after filtering", [])
+
+    # Truncate to max, logging a warning for dropped extras
+    if len(validated) > self.max_categories:
+      ignored = validated[self.max_categories:]
+      validated = validated[:self.max_categories]
+      self.logger.warning(
+        f"Joke-ID {joke_id}: {len(ignored)} categor"
+        f"{'y' if len(ignored) == 1 else 'ies'} ignored (exceeds max "
+        f"{self.max_categories}): {ignored}"
+      )
 
     return (True, "", validated)
 
@@ -148,7 +165,7 @@ class FormattedProcessor(StageProcessor):
 
       # Validate categories
       valid, error_msg, validated_categories = self._validate_categories(
-        categories_list
+        categories_list, joke_id
       )
       if not valid:
         self.logger.error(f"Joke-ID {joke_id}: {error_msg}")

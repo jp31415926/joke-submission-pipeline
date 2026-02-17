@@ -135,14 +135,14 @@ def mock_ollama_too_many_categories():
   """Mock Ollama client that returns too many categories (11 > max of 10)."""
   too_many = [
     "Animals", "Puns", "Food", "Technology", "Sports",
-    "Music", "Movies", "Science", "Travel", "History", "Weather"
+    "Music", "Movie", "Science", "Travel", "History", "Weather"
   ]
   with patch('stage_formatted.OllamaClient') as mock_client_class:
     mock_client = Mock()
     mock_client.system_prompt = 'You are a joke categorizer.'
     mock_client.user_prompt_template = 'Categorize: {content}'
     import json as json_lib
-    mock_client.generate.return_value = json_lib.dumps({"categories": too_many, "confidence": 85, "reason": "Too many categories assigned"})
+    mock_client.generate.return_value = json_lib.dumps({"categories": too_many, "confidence": 85, "reason": "Too many categories assigned"})  # noqa: E501
     mock_client.parse_structured_response.return_value = {
       'categories': too_many,
       'confidence': '85',
@@ -258,11 +258,11 @@ def test_three_categories(setup_test_environment, mock_ollama_three_categories):
   assert headers['Category-Confidence'] == '88'
 
 
-def test_invalid_category_rejected(
+def test_all_invalid_categories_rejected(
   setup_test_environment,
   mock_ollama_invalid_category
 ):
-  """Test that invalid category results in rejection."""
+  """Test that all-invalid categories (none in VALID_CATEGORIES) results in rejection."""
   env = setup_test_environment
 
   # Copy joke to input directory
@@ -284,17 +284,17 @@ def test_invalid_category_rejected(
   assert os.path.exists(reject_file)
   assert not os.path.exists(dest_joke)
 
-  # Verify rejection reason
+  # Verify rejection reason says no valid categories remain
   headers, content = parse_joke_file(reject_file)
   assert 'Rejection-Reason' in headers
-  assert 'invalid category' in headers['Rejection-Reason'].lower()
+  assert 'no valid categories' in headers['Rejection-Reason'].lower()
 
 
-def test_too_many_categories_rejected(
+def test_too_many_valid_categories_truncated(
   setup_test_environment,
   mock_ollama_too_many_categories
 ):
-  """Test that too many categories results in rejection."""
+  """Test that more than MAX valid categories are silently truncated to MAX."""
   env = setup_test_environment
 
   # Copy joke to input directory
@@ -311,14 +311,160 @@ def test_too_many_categories_rejected(
   processor = FormattedProcessor()
   processor.run()
 
-  # Verify file moved to reject directory
-  reject_file = os.path.join(env['reject_dir'], 'animal_pun.txt')
-  assert os.path.exists(reject_file)
+  # Verify file moved to OUTPUT (not reject) directory
+  output_file = os.path.join(env['output_dir'], 'animal_pun.txt')
+  assert os.path.exists(output_file)
+  assert not os.path.exists(dest_joke)
 
-  # Verify rejection reason
-  headers, content = parse_joke_file(reject_file)
-  assert 'Rejection-Reason' in headers
-  assert 'too many categories' in headers['Rejection-Reason'].lower()
+  # Verify exactly MAX_CATEGORIES_PER_JOKE categories were kept
+  headers, content = parse_joke_file(output_file)
+  categories = [cat.strip() for cat in headers['Categories'].split(',')]
+  assert len(categories) == joke_categories.MAX_CATEGORIES_PER_JOKE
+  # First 10 of the 11 provided should be kept (Weather is the 11th, dropped)
+  expected = [
+    "Animals", "Puns", "Food", "Technology", "Sports",
+    "Music", "Movie", "Science", "Travel", "History"
+  ]
+  assert categories == expected
+
+
+def test_some_invalid_categories_filtered(setup_test_environment):
+  """Test that invalid categories are filtered out when count is within max."""
+  env = setup_test_environment
+
+  with patch('stage_formatted.OllamaClient') as mock_client_class:
+    mock_client = Mock()
+    mock_client.system_prompt = 'You are a joke categorizer.'
+    mock_client.user_prompt_template = 'Categorize: {content}'
+    # Animals and Food are valid; FakeCategory and NotReal are not
+    mock_client.generate.return_value = json.dumps({
+      "categories": ["Animals", "FakeCategory", "Food", "NotReal"],
+      "confidence": 85,
+      "reason": "Mix of valid and invalid"
+    })
+    mock_client.parse_structured_response.return_value = {
+      'categories': ['Animals', 'FakeCategory', 'Food', 'NotReal'],
+      'confidence': '85',
+      'reason': 'Mix of valid and invalid'
+    }
+    mock_client.extract_confidence.return_value = 85
+    mock_client_class.return_value = mock_client
+
+    source_joke = os.path.join(
+      os.path.dirname(__file__), 'fixtures', 'jokes', 'animal_pun.txt'
+    )
+    shutil.copy(source_joke, os.path.join(env['input_dir'], 'animal_pun.txt'))
+
+    processor = FormattedProcessor()
+    processor.run()
+
+    # File should succeed — valid categories were kept
+    output_file = os.path.join(env['output_dir'], 'animal_pun.txt')
+    assert os.path.exists(output_file)
+
+    headers, content = parse_joke_file(output_file)
+    categories = [cat.strip() for cat in headers['Categories'].split(',')]
+    assert categories == ['Animals', 'Food']
+
+
+def test_invalid_and_over_max_categories(setup_test_environment):
+  """Test filtering invalids then truncating: 12 cats (4 invalid) → keep first 8 valid."""
+  env = setup_test_environment
+
+  with patch('stage_formatted.OllamaClient') as mock_client_class:
+    mock_client = Mock()
+    mock_client.system_prompt = 'You are a joke categorizer.'
+    mock_client.user_prompt_template = 'Categorize: {content}'
+    # 12 categories: 4 invalid interspersed. After filtering: 8 valid (within max=10).
+    mock_client.generate.return_value = json.dumps({
+      "categories": [
+        "Animals", "FakeOne", "Puns", "Food", "FakeTwo",
+        "Technology", "Sports", "FakeThree", "Music", "Movie",
+        "Science", "FakeFour"
+      ],
+      "confidence": 80,
+      "reason": "Mixed valid and invalid over max"
+    })
+    mock_client.parse_structured_response.return_value = {
+      'categories': [
+        "Animals", "FakeOne", "Puns", "Food", "FakeTwo",
+        "Technology", "Sports", "FakeThree", "Music", "Movie",
+        "Science", "FakeFour"
+      ],
+      'confidence': '80',
+      'reason': 'Mixed valid and invalid over max'
+    }
+    mock_client.extract_confidence.return_value = 80
+    mock_client_class.return_value = mock_client
+
+    source_joke = os.path.join(
+      os.path.dirname(__file__), 'fixtures', 'jokes', 'animal_pun.txt'
+    )
+    shutil.copy(source_joke, os.path.join(env['input_dir'], 'animal_pun.txt'))
+
+    processor = FormattedProcessor()
+    processor.run()
+
+    # Should succeed — 8 valid categories is within MAX_CATEGORIES_PER_JOKE
+    output_file = os.path.join(env['output_dir'], 'animal_pun.txt')
+    assert os.path.exists(output_file)
+
+    headers, content = parse_joke_file(output_file)
+    categories = [cat.strip() for cat in headers['Categories'].split(',')]
+    assert categories == [
+      "Animals", "Puns", "Food", "Technology", "Sports",
+      "Music", "Movie", "Science"
+    ]
+
+
+def test_invalid_and_over_max_truncated(setup_test_environment):
+  """Test filtering invalids then truncating when valid count still exceeds max."""
+  env = setup_test_environment
+
+  with patch('stage_formatted.OllamaClient') as mock_client_class:
+    mock_client = Mock()
+    mock_client.system_prompt = 'You are a joke categorizer.'
+    mock_client.user_prompt_template = 'Categorize: {content}'
+    # 13 categories: 1 invalid + 12 valid → filter to 12 valid → truncate to 10
+    mock_client.generate.return_value = json.dumps({
+      "categories": [
+        "Animals", "FakeOne", "Puns", "Food", "Technology", "Sports",
+        "Music", "Movie", "Science", "Travel", "History", "Weather", "Age"
+      ],
+      "confidence": 80,
+      "reason": "One invalid then 12 valid"
+    })
+    mock_client.parse_structured_response.return_value = {
+      'categories': [
+        "Animals", "FakeOne", "Puns", "Food", "Technology", "Sports",
+        "Music", "Movie", "Science", "Travel", "History", "Weather", "Age"
+      ],
+      'confidence': '80',
+      'reason': 'One invalid then 12 valid'
+    }
+    mock_client.extract_confidence.return_value = 80
+    mock_client_class.return_value = mock_client
+
+    source_joke = os.path.join(
+      os.path.dirname(__file__), 'fixtures', 'jokes', 'animal_pun.txt'
+    )
+    shutil.copy(source_joke, os.path.join(env['input_dir'], 'animal_pun.txt'))
+
+    processor = FormattedProcessor()
+    processor.run()
+
+    # Should succeed with exactly MAX categories
+    output_file = os.path.join(env['output_dir'], 'animal_pun.txt')
+    assert os.path.exists(output_file)
+
+    headers, content = parse_joke_file(output_file)
+    categories = [cat.strip() for cat in headers['Categories'].split(',')]
+    assert len(categories) == joke_categories.MAX_CATEGORIES_PER_JOKE
+    # FakeOne filtered, then first 10 of remaining 12 kept
+    assert categories == [
+      "Animals", "Puns", "Food", "Technology", "Sports",
+      "Music", "Movie", "Science", "Travel", "History"
+    ]
 
 
 def test_low_confidence_rejected(
