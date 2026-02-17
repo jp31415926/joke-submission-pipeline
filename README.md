@@ -53,8 +53,8 @@ Each joke progresses through these stages:
    - Maintains original meaning
 
 5. **05_formatted** - Category assignment using LLM
-   - Assigns 1-3 categories from predefined list
-   - Validates categories against `VALID_CATEGORIES` in config.py
+   - Assigns 1-10 categories from predefined list
+   - Validates categories against `VALID_CATEGORIES` in joke_categories.py
    - Requires confidence ≥ 70 (configurable)
 
 6. **06_categorized** - Title generation (if needed) and final validation

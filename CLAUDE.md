@@ -204,7 +204,7 @@ Valid joke categories are defined in `joke_categories.py` (not in `config.py`):
   - Merged from `docs/joke-categories.md` with deduplication
   - Flattened hierarchical categories (e.g., "Animal: Cat" → "Cat")
   - Removed trailing "Jokes" suffix from all categories
-- **MAX_CATEGORIES_PER_JOKE**: Maximum number of categories per joke (default: 3)
+- **MAX_CATEGORIES_PER_JOKE**: Maximum number of categories per joke (default: 10)
 
 ### Logging
 The `logging_utils.py` module provides centralized logging:

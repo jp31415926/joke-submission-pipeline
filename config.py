@@ -39,8 +39,8 @@ SEARCH_TFIDF = os.path.join(SEARCH_TFIDF_DIR, "search_tfidf.py")
 SEARCH_TFIDF_OPTIONS = ['-1', '-a', SEARCH_TFIDF_DATA_DIR]
 
 # Timeouts (in seconds)
-EXTERNAL_SCRIPT_TIMEOUT = 60  # Timeout for external scripts (joke-extractor, TF-IDF)
-OLLAMA_TIMEOUT = 300  # Timeout for Ollama LLM API calls
+EXTERNAL_SCRIPT_TIMEOUT = 120  # Timeout for external scripts (joke-extractor, TF-IDF)
+OLLAMA_TIMEOUT = 3600  # Timeout for Ollama LLM API calls
 
 # Ollama Server Pool Configuration
 # List of Ollama servers with their max concurrent requests
@@ -48,6 +48,7 @@ OLLAMA_SERVERS = [
   {"url": "http://localhost:11434", "max_concurrent": 1},
   # Add more servers as needed:
   {"url": "http://192.168.99.50:11434", "max_concurrent": 1},
+  {"url": "http://192.168.99.69:11434", "max_concurrent": 1},
 ]
 
 # Ollama Server Locking Configuration
@@ -121,7 +122,7 @@ Respond ONLY with valid JSON in this exact format:
 OLLAMA_CATEGORIZATION = {
   'OLLAMA_MODEL': 'gemma3:12b', # qwen3:8b, gemma3:4b
   'OLLAMA_SYSTEM_PROMPT': 'You are a joke categorization expert. No markdown formatting',
-  'OLLAMA_USER_PROMPT': '''Categorize this joke into 1-3 categories from this list:
+  'OLLAMA_USER_PROMPT': '''Categorize this joke into 1-10 categories from this list:
 {categories_list}
 
 Joke:

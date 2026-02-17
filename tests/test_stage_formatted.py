@@ -39,6 +39,10 @@ def setup_test_environment():
   config.PIPELINE_MAIN = pipeline_main
   config.PIPELINE_PRIORITY = pipeline_priority
 
+  # Remove ALL_STOP if present so it doesn't interfere with tests
+  if os.path.exists(config.ALL_STOP):
+    os.remove(config.ALL_STOP)
+
   yield {
     'test_dir': test_dir,
     'pipeline_main': pipeline_main,
@@ -128,15 +132,19 @@ def mock_ollama_invalid_category():
 
 @pytest.fixture
 def mock_ollama_too_many_categories():
-  """Mock Ollama client that returns too many categories."""
+  """Mock Ollama client that returns too many categories (11 > max of 10)."""
+  too_many = [
+    "Animals", "Puns", "Food", "Technology", "Sports",
+    "Music", "Movies", "Science", "Travel", "History", "Weather"
+  ]
   with patch('stage_formatted.OllamaClient') as mock_client_class:
     mock_client = Mock()
     mock_client.system_prompt = 'You are a joke categorizer.'
     mock_client.user_prompt_template = 'Categorize: {content}'
     import json as json_lib
-    mock_client.generate.return_value = json_lib.dumps({"categories": ["Animals", "Puns", "Food", "Technology"], "confidence": 85, "reason": "Too many categories assigned"})
+    mock_client.generate.return_value = json_lib.dumps({"categories": too_many, "confidence": 85, "reason": "Too many categories assigned"})
     mock_client.parse_structured_response.return_value = {
-      'categories': ['Animals', 'Puns', 'Food', 'Technology'],
+      'categories': too_many,
       'confidence': '85',
       'reason': 'Too many categories assigned'
     }
@@ -223,7 +231,7 @@ def test_two_categories(setup_test_environment, mock_ollama_two_categories):
 
 
 def test_three_categories(setup_test_environment, mock_ollama_three_categories):
-  """Test categorization with 3 categories (max allowed)."""
+  """Test categorization with 3 categories."""
   env = setup_test_environment
 
   # Copy animal pun joke to input directory

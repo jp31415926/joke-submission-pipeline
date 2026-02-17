@@ -182,7 +182,7 @@ To get to the other side!
 | **02_parsed/**           | 01_incoming/         | Duplicate check using `search_tfidf.py`         | 03_deduped/          | 51_rejected_duplicate/   | Output parsed; score > threshold = reject                          |
 | **03_deduped/**          | 02_parsed/           | Cleanliness LLM check                           | 04_clean_checked/    | 52_rejected_cleanliness/ | Confidence must be >= 70 (configurable)                            |
 | **04_clean_checked/**    | 03_deduped/          | Formatting LLM                                  | 05_formatted/        | 53_rejected_format/      | Updates joke content with formatted version                        |
-| **05_formatted/**        | 04_clean_checked/    | Categorization LLM                              | 06_categorized/      | 54_rejected_category/    | Confidence must be >= 70 (configurable); assigns 1-3 categories    |
+| **05_formatted/**        | 04_clean_checked/    | Categorization LLM                              | 06_categorized/      | 54_rejected_category/    | Confidence must be >= 70 (configurable); assigns 1-10 categories   |
 | **06_categorized/**      | 05_formatted/        | Title generation LLM (only if blank)            | 07_titled/           | 55_rejected_titled/      | Skips jokes with existing title                                    |
 | **07_titled/**           | 06_categorized/      | Final validation                                | 08_ready_for_review/ | 55_rejected_titled/      | Validates all required fields present                              |
 | **08_ready_for_review/** | 07_titled/           | Manual review (out of scope)                    | N/A                  | N/A                      | Holding area; reviewers manually move files (outside this project) |
@@ -352,7 +352,7 @@ ollama_config = {
   - Updates joke content
   
 * **Categorization** (05_formatted → 06_categorized)
-  - Returns 1-3 categories from valid list
+  - Returns 1-10 categories from valid list
   - Confidence: 0-100 integer
   - Minimum confidence threshold: 70 (configurable in config.py)
   
@@ -412,11 +412,11 @@ VALID_CATEGORIES = [
     "Topical"
 ]
 
-MAX_CATEGORIES_PER_JOKE = 3
+MAX_CATEGORIES_PER_JOKE = 10
 ```
 
 **Categorization Rules**:
-* Assign 1-3 most relevant categories
+* Assign 1-10 most relevant categories
 * All categories must be from VALID_CATEGORIES list
 * Invalid categories are filtered out
 * If no valid categories after filtering: reject to 54_rejected_category
@@ -548,7 +548,7 @@ OLLAMA_CATEGORIZATION = {
   'OLLAMA_API_URL': 'http://localhost:11434/api/generate',
   'OLLAMA_MODEL': 'qwen3:8b',
   'OLLAMA_SYSTEM_PROMPT': 'You are a joke categorizer. Keep responses short.',
-  'OLLAMA_USER_PROMPT': '''Categorize this joke (1-3 categories):
+  'OLLAMA_USER_PROMPT': '''Categorize this joke (1-10 categories):
 {categories_list}
 
 Joke: {content}
@@ -586,7 +586,7 @@ VALID_CATEGORIES = [
     "Birthday", "Wedding",
     "Clean", "Topical"
 ]
-MAX_CATEGORIES_PER_JOKE = 3
+MAX_CATEGORIES_PER_JOKE = 10
 
 # Logging
 LOG_DIR = "/path/to/logs"

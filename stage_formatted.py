@@ -2,7 +2,7 @@
 """
 Stage 05: Formatted - Categorization
 
-This stage uses Ollama LLM to assign 1-3 categories to jokes.
+This stage uses Ollama LLM to assign 1-10 categories to jokes.
 """
 
 import json
