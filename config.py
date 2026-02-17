@@ -168,50 +168,6 @@ Respond ONLY with valid JSON in this exact format:
   }
 }
 
-# Valid Categories
-VALID_CATEGORIES = [
-    # Humor Styles
-    "Puns",
-    "Wordplay", 
-    "Dad Jokes",
-    "Dark Humor",
-    "Observational",
-    "Knock-Knock",
-    "One-Liners",
-    "Anti-Jokes",
-    
-    # Topics
-    "Animals",
-    "Family",
-    "Food",
-    "History",
-    "Kids",
-    "Politics",
-    "Relationships",
-    "School",
-    "Science",
-    "Sports",
-    "Technology",
-    "Travel",
-    "Work",
-    
-    # Occasions
-    "Holiday",
-    "Christmas",
-    "Halloween", 
-    "Thanksgiving",
-    "Birthday",
-    "Wedding",
-    "New Year's Day",
-    "Independence Day",
-    "Veteran's Day",
-    
-    # Other
-    "Topical"
-]
-
-MAX_CATEGORIES_PER_JOKE = 3
-
 # Logging
 LOG_DIR = os.path.join(os.path.dirname(__file__), "logs")
 LOG_LEVEL = "INFO"

@@ -195,8 +195,16 @@ The `external_scripts.py` module provides:
   - User prompts use format strings (e.g., `{content}`, `{categories}`, `{categories_list}`)
   - LLM responses expected in JSON format for proper multi-line handling
   - LLM responses may be wrapped in markdown code blocks (```json...```), which are automatically stripped
-- **Valid joke categories** (VALID_CATEGORIES): List of approved category names (Adult removed, not appropriate)
 - **Logging**: LOG_DIR, LOG_LEVEL (default: INFO)
+
+### Joke Categories
+Valid joke categories are defined in `joke_categories.py` (not in `config.py`):
+- **VALID_CATEGORIES**: List of 984 approved category names (alphabetically sorted)
+  - Categories with `*` suffix require manual review for appropriateness
+  - Merged from `docs/joke-categories.md` with deduplication
+  - Flattened hierarchical categories (e.g., "Animal: Cat" → "Cat")
+  - Removed trailing "Jokes" suffix from all categories
+- **MAX_CATEGORIES_PER_JOKE**: Maximum number of categories per joke (default: 3)
 
 ### Logging
 The `logging_utils.py` module provides centralized logging:

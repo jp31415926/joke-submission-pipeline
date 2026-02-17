@@ -12,6 +12,7 @@ from stage_processor import StageProcessor
 from ollama_client import OllamaClient
 from logging_utils import get_logger
 import config
+import joke_categories
 
 logger = get_logger(__name__)
 
@@ -36,8 +37,8 @@ class FormattedProcessor(StageProcessor):
       stage_name="categorization"
     )
     self.min_confidence = config.CATEGORIZATION_MIN_CONFIDENCE
-    self.valid_categories = config.VALID_CATEGORIES
-    self.max_categories = config.MAX_CATEGORIES_PER_JOKE
+    self.valid_categories = joke_categories.VALID_CATEGORIES
+    self.max_categories = joke_categories.MAX_CATEGORIES_PER_JOKE
 
   def _validate_categories(self, categories: List[str]) -> Tuple[bool, str, List[str]]:
     """

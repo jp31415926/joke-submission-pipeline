@@ -17,6 +17,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from stage_formatted import FormattedProcessor
 from file_utils import parse_joke_file
 import config
+import joke_categories
 
 
 @pytest.fixture
@@ -377,7 +378,7 @@ def test_metadata_updates(setup_test_environment, mock_ollama_one_category):
   # Categories should be from valid list
   categories = [cat.strip() for cat in headers['Categories'].split(',')]
   for cat in categories:
-    assert cat in config.VALID_CATEGORIES
+    assert cat in joke_categories.VALID_CATEGORIES
 
 
 def test_case_insensitive_category_matching(setup_test_environment):

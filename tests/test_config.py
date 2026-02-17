@@ -11,6 +11,7 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) + "/..")
 
 import config
+import joke_categories
 
 def test_config_imports_successfully():
     """Test that config.py imports without errors."""
@@ -76,12 +77,12 @@ def test_required_constants_present():
     assert isinstance(config.OLLAMA_CATEGORIZATION, dict)
     assert isinstance(config.OLLAMA_TITLE_GENERATION, dict)
     
-    # Categories
-    assert hasattr(config, 'VALID_CATEGORIES')
-    assert isinstance(config.VALID_CATEGORIES, list)
-    assert len(config.VALID_CATEGORIES) > 0
-    
-    assert hasattr(config, 'MAX_CATEGORIES_PER_JOKE')
+    # Categories (now in joke_categories module)
+    assert hasattr(joke_categories, 'VALID_CATEGORIES')
+    assert isinstance(joke_categories.VALID_CATEGORIES, list)
+    assert len(joke_categories.VALID_CATEGORIES) > 0
+
+    assert hasattr(joke_categories, 'MAX_CATEGORIES_PER_JOKE')
     
     # Logging
     assert hasattr(config, 'LOG_DIR')
@@ -106,7 +107,7 @@ def test_data_types():
     assert isinstance(config.MAX_RETRIES, int)
 
     # MAX_CATEGORIES_PER_JOKE should be an integer
-    assert isinstance(config.MAX_CATEGORIES_PER_JOKE, int)
+    assert isinstance(joke_categories.MAX_CATEGORIES_PER_JOKE, int)
 
     # LOG_LEVEL should be a string
     assert isinstance(config.LOG_LEVEL, str)
@@ -130,8 +131,8 @@ def test_data_types():
 
 def test_valid_categories():
     """Test that VALID_CATEGORIES is a non-empty list."""
-    assert isinstance(config.VALID_CATEGORIES, list)
-    assert len(config.VALID_CATEGORIES) > 0
+    assert isinstance(joke_categories.VALID_CATEGORIES, list)
+    assert len(joke_categories.VALID_CATEGORIES) > 0
 
 def test_ollama_config_has_required_keys():
     """Test that ollama configs have all required keys."""
