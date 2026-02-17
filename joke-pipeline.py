@@ -290,7 +290,7 @@ def run_pipeline(pipeline_type: str = "both", stage_only: Optional[str] = None):
 def signal_handler(signum, frame):
   """Handle signals by cleaning up locks."""
   logger = get_logger("SignalHandler")
-  logger.info(f"Received signal {signum}, cleaning up locks...")
+  logger.info(f"Received signal {signum}, cleaning up locks")
 
   server_pool = get_server_pool()
   if server_pool:
@@ -416,7 +416,7 @@ Stages (in order):
       logger.warning(f"Failed to remove ALL_STOP file: {e}")
 
   # Initialize Ollama server pool
-  logger.info("Initializing Ollama server pool...")
+  logger.info("Initializing Ollama server pool")
   initialize_server_pool(
     servers=config.OLLAMA_SERVERS,
     lock_dir=config.OLLAMA_LOCK_DIR,

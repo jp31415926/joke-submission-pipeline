@@ -101,10 +101,10 @@ class OllamaClient:
         f"Ollama request to {api_url} with model {self.model}"
       )
       logger.debug(
-        f"System prompt: {system_prompt[:100]}..."
+        f"System prompt: {system_prompt[:100]}"
       )
       logger.debug(
-        f"User prompt: {user_prompt}..."
+        f"User prompt: {user_prompt}"
       )
 
       # POST to Ollama API
@@ -142,7 +142,7 @@ class OllamaClient:
         f"Ollama response received ({len(response_text)} chars)"
       )
       logger.debug(
-        f"Response: {response_text}..."
+        f"Response: {response_text}"
       )
 
       return response_text

@@ -128,7 +128,7 @@ def main():
             logger.error("Input joke file is empty")
             sys.exit(1)
             
-        logger.info(f"Searching for: {joke_text[:50]}...")
+        logger.info(f"Searching for: {joke_text[:50]}")
         
         # Perform search
         results = search_joke(joke_text, vectorizer, tfidf_matrix, joke_ids, joke_titles)

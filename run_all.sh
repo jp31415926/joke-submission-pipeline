@@ -2,10 +2,11 @@
 
 STOP_FILE=./ALL_STOP
 SLEEP_DELAY=5
+VERBOSE=--verbose
 
 run_script() {
     while [ ! -f $STOP_FILE ]; do
-        ./joke-pipeline.py --stage $1
+        ./joke-pipeline.py --stage $1 $VERBOSE
         # Integer-only math: (Base * (80% + 0-40%)) / 100
         sleep $(( SLEEP_DELAY * (800 + RANDOM % 401) / 1000 ))
     done

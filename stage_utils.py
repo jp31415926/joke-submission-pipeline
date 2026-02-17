@@ -15,7 +15,7 @@ logger = get_logger(__name__)
 
 def signal_handler(signum, frame):
   """Handle signals by cleaning up locks."""
-  logger.info(f"Received signal {signum}, cleaning up locks...")
+  logger.info(f"Received signal {signum}, cleaning up locks")
 
   server_pool = get_server_pool()
   if server_pool:
@@ -34,7 +34,7 @@ def initialize_stage_environment():
   - Signal handlers for cleanup
   """
   # Initialize Ollama server pool
-  logger.info("Initializing Ollama server pool...")
+  logger.info("Initializing Ollama server pool")
   initialize_server_pool(
     servers=config.OLLAMA_SERVERS,
     lock_dir=config.OLLAMA_LOCK_DIR,

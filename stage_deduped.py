@@ -73,6 +73,7 @@ class DedupedProcessor(StageProcessor):
 
       # Parse JSON response
       try:
+        self.logger.debug(f"{joke_id} response: {response_text}")
         response_dict = json.loads(response_text.strip())
       except json.JSONDecodeError as e:
         self.logger.error(

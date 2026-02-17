@@ -955,9 +955,6 @@
 - You So: Dumb Jokes
 - You So: Fat Jokes
 - You So: Ugly Jokes
-- Your ... So Dumb Jokes
-- Your ... So Fat Jokes
-- Your ... So Ugly Jokes
 - YouTube Jokes
 - Zoom Jokes
 - Zombie Jokes
