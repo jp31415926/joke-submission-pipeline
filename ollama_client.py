@@ -8,6 +8,7 @@ import re
 import requests
 from typing import Dict, Optional, Tuple
 
+import config
 from logging_utils import get_logger
 from ollama_server_pool import get_server_pool
 
@@ -37,7 +38,7 @@ class OllamaClient:
     self,
     system_prompt: str,
     user_prompt: str,
-    timeout: int = 300
+    timeout: int = config.OLLAMA_TIMEOUT
   ) -> str:
     """
     Generate response from Ollama API using server pool.

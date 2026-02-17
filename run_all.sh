@@ -1,7 +1,7 @@
 #!/usr/bin/bash
 
 STOP_FILE=./ALL_STOP
-SLEEP_DELAY=20
+SLEEP_DELAY=5
 
 run_script() {
     while [ ! -f $STOP_FILE ]; do
