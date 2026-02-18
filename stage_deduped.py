@@ -57,7 +57,7 @@ class DedupedProcessor(StageProcessor):
       Tuple of (success, updated_headers, updated_content, reject_reason)
     """
     joke_id = headers.get('Joke-ID', 'unknown')
-    self.logger.info(f"Processing cleanliness check for Joke-ID: {joke_id}")
+    self.logger.info(f"{joke_id} Processing cleanliness check")
 
     # Construct prompts from config
     system_prompt = self.ollama_client.system_prompt
@@ -77,7 +77,7 @@ class DedupedProcessor(StageProcessor):
         response_dict = json.loads(response_text.strip())
       except json.JSONDecodeError as e:
         self.logger.error(
-          f"Failed to parse JSON response for Joke-ID: {joke_id}: {e}"
+          f"{joke_id} Failed to parse JSON response: {e}"
         )
         # Fall back to old parsing method
         response_dict = self.ollama_client.parse_structured_response(
@@ -89,8 +89,7 @@ class DedupedProcessor(StageProcessor):
       status = response_dict.get('status', '').upper()
       if status not in ['PASS', 'FAIL']:
         self.logger.warning(
-          f"Invalid status '{status}' for Joke-ID: {joke_id}, "
-          f"treating as FAIL"
+          f"{joke_id} Invalid status '{status}', treating as FAIL"
         )
         status = 'FAIL'
 
@@ -100,8 +99,7 @@ class DedupedProcessor(StageProcessor):
         confidence = self.ollama_client.extract_confidence(response_dict)
       if confidence is None:
         self.logger.warning(
-          f"Could not extract confidence for Joke-ID: {joke_id}, "
-          f"using 0"
+          f"{joke_id} Could not extract confidence, using 0"
         )
         confidence = 0
 
@@ -113,15 +111,14 @@ class DedupedProcessor(StageProcessor):
       headers['Cleanliness-Confidence'] = str(confidence)
 
       self.logger.info(
-        f"Cleanliness check result for Joke-ID: {joke_id}: "
-        f"Status={status}, Confidence={confidence}"
+        f"{joke_id} Cleanliness check result: Status={status}, Confidence={confidence}"
       )
 
       # Check if failed cleanliness
       if status == 'FAIL':
         reject_reason = f"Cleanliness check failed: {reason}"
         self.logger.warning(
-          f"Joke-ID: {joke_id} failed cleanliness check: {reason}"
+          f"{joke_id} Failed cleanliness check: {reason}"
         )
         return (False, headers, content, reject_reason)
 
@@ -132,21 +129,20 @@ class DedupedProcessor(StageProcessor):
           f"{self.min_confidence}: {reason}"
         )
         self.logger.warning(
-          f"Joke-ID: {joke_id} rejected due to low confidence: "
-          f"{confidence} < {self.min_confidence}"
+          f"{joke_id} Rejected due to low confidence: {confidence} < {self.min_confidence}"
         )
         return (False, headers, content, reject_reason)
 
       # Success
       self.logger.info(
-        f"Joke-ID: {joke_id} passed cleanliness check"
+        f"{joke_id} Passed cleanliness check"
       )
       return (True, headers, content, "")
 
     except Exception as e:
       # Handle LLM errors
       self.logger.error(
-        f"LLM error processing Joke-ID: {joke_id}: {e}"
+        f"{joke_id} LLM error: {e}"
       )
       reject_reason = f"LLM error: {str(e)}"
       return (False, headers, content, reject_reason)

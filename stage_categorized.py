@@ -119,14 +119,14 @@ class CategorizedProcessor(StageProcessor):
     """
     joke_id = headers.get('Joke-ID', 'unknown')
     self.logger.info(
-      f"Processing title generation and validation for Joke-ID: {joke_id}"
+      f"{joke_id} Processing title generation and validation"
     )
 
     # Check if title needs to be generated
     title = headers.get('Title', '').strip()
 
     if not title:
-      self.logger.info(f"Joke-ID {joke_id}: Title is blank, generating title")
+      self.logger.info(f"{joke_id} Title is blank, generating title")
 
       # Construct prompts from config
       system_prompt = self.ollama_client.system_prompt
@@ -150,7 +150,7 @@ class CategorizedProcessor(StageProcessor):
           response_dict = json.loads(response_text.strip())
         except json.JSONDecodeError as e:
           self.logger.error(
-            f"Failed to parse JSON response for Joke-ID: {joke_id}: {e}"
+            f"{joke_id} Failed to parse JSON response: {e}"
           )
           # Fall back to old parsing method
           response_dict = self.ollama_client.parse_structured_response(
@@ -162,7 +162,7 @@ class CategorizedProcessor(StageProcessor):
         generated_title = response_dict.get('title', '').strip()
         if not generated_title:
           error_msg = "LLM did not return title"
-          self.logger.error(f"Joke-ID {joke_id}: {error_msg}")
+          self.logger.error(f"{joke_id} {error_msg}")
           return (False, headers, content, error_msg)
 
         # Extract confidence
@@ -171,14 +171,12 @@ class CategorizedProcessor(StageProcessor):
           confidence = self.ollama_client.extract_confidence(response_dict)
         if confidence is None:
           self.logger.warning(
-            f"Could not extract title confidence for Joke-ID: {joke_id}, "
-            f"using 0"
+            f"{joke_id} Could not extract title confidence, using 0"
           )
           confidence = 0
 
         self.logger.info(
-          f"Generated title for Joke-ID {joke_id}: '{generated_title}' "
-          f"(confidence: {confidence})"
+          f"{joke_id} Generated title: '{generated_title}' (confidence: {confidence})"
         )
 
         # Check confidence threshold
@@ -188,7 +186,7 @@ class CategorizedProcessor(StageProcessor):
             f"{self.title_min_confidence}"
           )
           self.logger.warning(
-            f"Joke-ID: {joke_id} rejected due to low title confidence"
+            f"{joke_id} Rejected due to low title confidence"
           )
           return (False, headers, content, reject_reason)
 
@@ -198,26 +196,26 @@ class CategorizedProcessor(StageProcessor):
       except Exception as e:
         # Handle LLM errors
         error_msg = f"LLM error generating title: {e}"
-        self.logger.error(f"Joke-ID {joke_id}: {error_msg}")
+        self.logger.error(f"{joke_id} {error_msg}")
         return (False, headers, content, error_msg)
 
     else:
       self.logger.info(
-        f"Joke-ID {joke_id}: Title already exists, skipping generation"
+        f"{joke_id} Title already exists, skipping generation"
       )
 
     # Perform final validation
-    self.logger.info(f"Performing final validation for Joke-ID: {joke_id}")
+    self.logger.info(f"{joke_id} Performing final validation")
     valid, error_message = self._validate_final(headers, content)
 
     if not valid:
       reject_reason = f"Validation failed: {error_message}"
-      self.logger.warning(f"Joke-ID {joke_id}: {reject_reason}")
+      self.logger.warning(f"{joke_id} {reject_reason}")
       return (False, headers, content, reject_reason)
 
     # Success - ready for review
     self.logger.info(
-      f"Joke-ID: {joke_id} passed all validation, ready for review"
+      f"{joke_id} Passed all validation, ready for review"
     )
     return (True, headers, content, "")
 

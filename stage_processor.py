@@ -119,7 +119,7 @@ class StageProcessor(ABC):
         except Exception as e:
             self.logger.error(f"Could not parse headers from {filepath}: {e}")
 
-        self.logger.info(f"Starting to process file {filepath} (Joke-ID: {joke_id})")
+        self.logger.info(f"{joke_id} Starting to process file {filepath}")
 
         # Move file to tmp/ directory to prevent concurrent processing
         input_dir = os.path.dirname(filepath)
@@ -131,10 +131,10 @@ class StageProcessor(ABC):
 
         try:
             shutil.move(filepath, tmp_filepath)
-            self.logger.debug(f"Moved file to tmp for processing: {tmp_filepath} (Joke-ID: {joke_id})")
+            self.logger.debug(f"{joke_id} Moved file to tmp for processing: {tmp_filepath}")
             filepath = tmp_filepath  # Update filepath to tmp location
         except Exception as e:
-            self.logger.error(f"Failed to move file to tmp directory: {e} (Joke-ID: {joke_id})")
+            self.logger.error(f"{joke_id} Failed to move file to tmp directory: {e}")
             # If we can't move to tmp, we can't safely process this file
             return
 
@@ -143,9 +143,9 @@ class StageProcessor(ABC):
         try:
             with open(processing_file, 'w', encoding='utf-8') as f:
                 f.write(joke_id)
-            self.logger.debug(f"Wrote processing status for Joke-ID: {joke_id}")
+            self.logger.debug(f"{joke_id} Wrote processing status")
         except Exception as e:
-            self.logger.warning(f"Failed to write PROCESSING file: {e} (Joke-ID: {joke_id})")
+            self.logger.warning(f"{joke_id} Failed to write PROCESSING file: {e}")
             # Continue processing even if we can't write the status file
 
         retries = 0
@@ -162,24 +162,24 @@ class StageProcessor(ABC):
 
                     if success:
                         self._move_to_output(filepath, updated_headers, updated_content)
-                        self.logger.info(f"Successfully processed file {filepath} (Joke-ID: {joke_id})")
+                        self.logger.info(f"{joke_id} Successfully processed file {filepath}")
                         return
                     else:
                         # If not successful, check if we've exhausted retries
                         if retries < max_retries:
                             retries += 1
-                            self.logger.warning(f"Processing failed for {filepath} (Joke-ID: {joke_id}), retry {retries}/{max_retries}")
+                            self.logger.warning(f"{joke_id} Processing failed for {filepath}, retry {retries}/{max_retries}")
                         else:
                             # Final failure - move to reject directory
                             self._move_to_reject(filepath, headers, content, reject_reason)
-                            self.logger.error(f"Processing failed after {max_retries} retries for {filepath} (Joke-ID: {joke_id}). Reason: {reject_reason}")
+                            self.logger.error(f"{joke_id} Processing failed after {max_retries} retries for {filepath}. Reason: {reject_reason}")
                             return
 
                 except Exception as e:
                     # If exception occurs, check if we can retry
                     if retries < max_retries:
                         retries += 1
-                        self.logger.warning(f"Exception in processing {filepath} (Joke-ID: {joke_id}), retry {retries}/{max_retries}: {e}")
+                        self.logger.warning(f"{joke_id} Exception in processing {filepath}, retry {retries}/{max_retries}: {e}")
                     else:
                         # Final failure - move to reject directory
                         # If headers is not defined at this point (due to exception during parse), we still need to handle this
@@ -190,16 +190,16 @@ class StageProcessor(ABC):
                             headers = {}
                             content = ""
                         self._move_to_reject(filepath, headers, content, f"Exception occurred: {e}")
-                        self.logger.error(f"Exception in processing {filepath} (Joke-ID: {joke_id}) after {max_retries} retries: {e}")
+                        self.logger.error(f"{joke_id} Exception in processing {filepath} after {max_retries} retries: {e}")
                         return
         finally:
             # Always delete PROCESSING file when done
             if os.path.exists(processing_file):
                 try:
                     os.remove(processing_file)
-                    self.logger.debug(f"Deleted processing status for Joke-ID: {joke_id}")
+                    self.logger.debug(f"{joke_id} Deleted processing status")
                 except Exception as e:
-                    self.logger.warning(f"Failed to delete PROCESSING file: {e} (Joke-ID: {joke_id})")
+                    self.logger.warning(f"{joke_id} Failed to delete PROCESSING file: {e}")
         
     def _move_to_output(self, filepath: str, headers: Dict[str, str], content: str):
         """
@@ -228,7 +228,7 @@ class StageProcessor(ABC):
             
         atomic_move(filepath, final_output_dir)
         
-        self.logger.info(f"Moved successful file from {filepath} to {final_output_dir} (Joke-ID: {joke_id})")
+        self.logger.info(f"{joke_id} Moved successful file from {filepath} to {final_output_dir}")
     
     def _move_to_reject(self, filepath: str, headers: Dict[str, str], content: str, reason: str):
         """
@@ -264,7 +264,7 @@ class StageProcessor(ABC):
         # Log rejection to failure log file
         self._log_rejection(filepath, joke_id, reason)
 
-        self.logger.info(f"Moved rejected file from {filepath} to {final_reject_dir} (Joke-ID: {joke_id}). Reason: {reason}")
+        self.logger.info(f"{joke_id} Moved rejected file from {filepath} to {final_reject_dir}. Reason: {reason}")
 
     def _log_rejection(self, filepath: str, joke_id: str, reason: str):
         """
@@ -297,6 +297,6 @@ class StageProcessor(ABC):
             os.makedirs(self.config.LOG_DIR, exist_ok=True)
             with open(log_filepath, 'a', encoding='utf-8') as f:
                 f.write(f"{joke_id} {clean_reason}\n")
-            self.logger.debug(f"Logged rejection to {log_filepath}: {joke_id}")
+            self.logger.debug(f"{joke_id} Logged rejection to {log_filepath}")
         except Exception as e:
-            self.logger.warning(f"Failed to write rejection log: {e} (Joke-ID: {joke_id})")
+            self.logger.warning(f"{joke_id} Failed to write rejection log: {e}")

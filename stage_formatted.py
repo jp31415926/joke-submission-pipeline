@@ -78,7 +78,7 @@ class FormattedProcessor(StageProcessor):
 
     if invalid_cats:
       self.logger.warning(
-        f"Joke-ID {joke_id}: {len(invalid_cats)} suggested "
+        f"{joke_id} {len(invalid_cats)} suggested "
         f"categor{'y' if len(invalid_cats) == 1 else 'ies'} not in "
         f"VALID_CATEGORIES (ignored): {invalid_cats}"
       )
@@ -91,7 +91,7 @@ class FormattedProcessor(StageProcessor):
       ignored = validated[self.max_categories:]
       validated = validated[:self.max_categories]
       self.logger.warning(
-        f"Joke-ID {joke_id}: {len(ignored)} categor"
+        f"{joke_id} {len(ignored)} categor"
         f"{'y' if len(ignored) == 1 else 'ies'} ignored (exceeds max "
         f"{self.max_categories}): {ignored}"
       )
@@ -116,7 +116,7 @@ class FormattedProcessor(StageProcessor):
       Tuple of (success, updated_headers, updated_content, reject_reason)
     """
     joke_id = headers.get('Joke-ID', 'unknown')
-    self.logger.info(f"Processing categorization for Joke-ID: {joke_id}")
+    self.logger.info(f"{joke_id} Processing categorization")
 
     # Construct prompts from config
     system_prompt = self.ollama_client.system_prompt
@@ -140,7 +140,7 @@ class FormattedProcessor(StageProcessor):
         response_dict = json.loads(response_text.strip())
       except json.JSONDecodeError as e:
         self.logger.error(
-          f"Failed to parse JSON response for Joke-ID: {joke_id}: {e}"
+          f"{joke_id} Failed to parse JSON response: {e}"
         )
         # Fall back to old parsing method
         response_dict = self.ollama_client.parse_structured_response(
@@ -156,12 +156,12 @@ class FormattedProcessor(StageProcessor):
         categories_list = [cat.strip() for cat in categories_raw.split(',')]
       else:
         error_msg = "LLM did not return valid categories"
-        self.logger.error(f"Joke-ID {joke_id}: {error_msg}")
+        self.logger.error(f"{joke_id} {error_msg}")
         return (False, headers, content, error_msg)
 
       if not categories_list:
         error_msg = "LLM returned empty categories list"
-        self.logger.error(f"Joke-ID {joke_id}: {error_msg}")
+        self.logger.error(f"{joke_id} {error_msg}")
         return (False, headers, content, error_msg)
 
       # Validate categories
@@ -169,7 +169,7 @@ class FormattedProcessor(StageProcessor):
         categories_list, joke_id
       )
       if not valid:
-        self.logger.error(f"Joke-ID {joke_id}: {error_msg}")
+        self.logger.error(f"{joke_id} {error_msg}")
         return (False, headers, content, error_msg)
 
       # Extract confidence
@@ -178,8 +178,7 @@ class FormattedProcessor(StageProcessor):
         confidence = self.ollama_client.extract_confidence(response_dict)
       if confidence is None:
         self.logger.warning(
-          f"Could not extract confidence for Joke-ID: {joke_id}, "
-          f"using 0"
+          f"{joke_id} Could not extract confidence, using 0"
         )
         confidence = 0
 
@@ -191,7 +190,7 @@ class FormattedProcessor(StageProcessor):
       headers['Category-Confidence'] = str(confidence)
 
       self.logger.info(
-        f"Categorization result for Joke-ID {joke_id}: "
+        f"{joke_id} Categorization result: "
         f"Categories={validated_categories}, Confidence={confidence}, "
         f"Reasoning: {reason}"
       )
@@ -203,21 +202,21 @@ class FormattedProcessor(StageProcessor):
           f"{self.min_confidence}"
         )
         self.logger.warning(
-          f"Joke-ID: {joke_id} rejected due to low categorization confidence: "
+          f"{joke_id} Rejected due to low categorization confidence: "
           f"{confidence} < {self.min_confidence}"
         )
         return (False, headers, content, reject_reason)
 
       # Success
       self.logger.info(
-        f"Joke-ID: {joke_id} categorization complete"
+        f"{joke_id} Categorization complete"
       )
       return (True, headers, content, "")
 
     except Exception as e:
       # Handle LLM errors
       self.logger.error(
-        f"LLM error processing Joke-ID: {joke_id}: {e}"
+        f"{joke_id} LLM error: {e}"
       )
       reject_reason = f"LLM error: {str(e)}"
       return (False, headers, content, reject_reason)

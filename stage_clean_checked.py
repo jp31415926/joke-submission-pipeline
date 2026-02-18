@@ -55,7 +55,7 @@ class CleanCheckedProcessor(StageProcessor):
       Tuple of (success, updated_headers, updated_content, reject_reason)
     """
     joke_id = headers.get('Joke-ID', 'unknown')
-    self.logger.info(f"Processing formatting for Joke-ID: {joke_id}")
+    self.logger.info(f"{joke_id} Processing formatting")
 
     # Construct prompts from config
     system_prompt = self.ollama_client.system_prompt
@@ -75,7 +75,7 @@ class CleanCheckedProcessor(StageProcessor):
         response_dict = json.loads(response_text.strip())
       except json.JSONDecodeError as e:
         self.logger.error(
-          f"Failed to parse JSON response for Joke-ID: {joke_id}: {e}"
+          f"{joke_id} Failed to parse JSON response: {e}"
         )
         # Fall back to old parsing method
         response_dict = self.ollama_client.parse_structured_response(
@@ -87,7 +87,7 @@ class CleanCheckedProcessor(StageProcessor):
       formatted_joke = response_dict.get('formatted_joke', '').strip()
       if not formatted_joke:
         error_msg = "LLM did not return formatted joke"
-        self.logger.error(f"Joke-ID {joke_id}: {error_msg}")
+        self.logger.error(f"{joke_id} {error_msg}")
         return (False, headers, content, error_msg)
 
       # Extract confidence
@@ -96,8 +96,7 @@ class CleanCheckedProcessor(StageProcessor):
         confidence = self.ollama_client.extract_confidence(response_dict)
       if confidence is None:
         self.logger.warning(
-          f"Could not extract confidence for Joke-ID: {joke_id}, "
-          f"using 0"
+          f"{joke_id} Could not extract confidence, using 0"
         )
         confidence = 0
 
@@ -109,8 +108,7 @@ class CleanCheckedProcessor(StageProcessor):
       headers['Format-Confidence'] = str(confidence)
 
       self.logger.info(
-        f"Formatting result for Joke-ID {joke_id}: "
-        f"Confidence={confidence}, Changes: {changes}"
+        f"{joke_id} Formatting result: Confidence={confidence}, Changes: {changes}"
       )
 
       # Check confidence threshold
@@ -120,21 +118,20 @@ class CleanCheckedProcessor(StageProcessor):
           f"{self.min_confidence}"
         )
         self.logger.warning(
-          f"Joke-ID: {joke_id} rejected due to low format confidence: "
-          f"{confidence} < {self.min_confidence}"
+          f"{joke_id} Rejected due to low format confidence: {confidence} < {self.min_confidence}"
         )
         return (False, headers, content, reject_reason)
 
       # Success - return with formatted content
       self.logger.info(
-        f"Joke-ID: {joke_id} formatting complete"
+        f"{joke_id} Formatting complete"
       )
       return (True, headers, formatted_joke, "")
 
     except Exception as e:
       # Handle LLM errors
       self.logger.error(
-        f"LLM error processing Joke-ID: {joke_id}: {e}"
+        f"{joke_id} LLM error: {e}"
       )
       reject_reason = f"LLM error: {str(e)}"
       return (False, headers, content, reject_reason)

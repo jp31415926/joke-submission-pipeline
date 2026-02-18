@@ -79,7 +79,7 @@ class IncomingProcessor(StageProcessor):
         
         try:
             # Call joke-extract.py
-            self.logger.info(f"Calling joke-extract.py for {email_filename}")
+            self.logger.info(f"{email_filename} Calling joke-extract.py")
             return_code, stdout, stderr = run_external_script(
                 config.JOKE_EXTRACTOR,
                 [filepath, success_dir, fail_dir],
@@ -89,8 +89,7 @@ class IncomingProcessor(StageProcessor):
             # Check return code
             if return_code != 0:
                 self.logger.error(
-                    f"joke-extract.py failed with return code {return_code} "
-                    f"for {email_filename}: {stderr}"
+                    f"{email_filename} joke-extract.py failed with return code {return_code}: {stderr}"
                 )
                 return (False, {}, "", f"joke-extract.py failed with return code {return_code}")
             
@@ -103,12 +102,12 @@ class IncomingProcessor(StageProcessor):
             
             # Check if any jokes were extracted
             if not extracted_files:
-                self.logger.warning(f"No jokes extracted from {email_filename}")
+                self.logger.warning(f"{email_filename} No jokes extracted")
                 return (False, {}, "", "No jokes extracted from email")
             
             # Process each extracted joke
             self.logger.info(
-                f"Found {len(extracted_files)} joke(s) extracted from {email_filename}"
+                f"{email_filename} Found {len(extracted_files)} joke(s) extracted"
             )
             
             for extracted_file in extracted_files:
@@ -128,7 +127,7 @@ class IncomingProcessor(StageProcessor):
             try:
                 shutil.rmtree(temp_dir)
             except Exception as e:
-                self.logger.warning(f"Failed to clean up temp directory {temp_dir}: {e}")
+                self.logger.warning(f"{email_filename} Failed to clean up temp directory {temp_dir}: {e}")
     
     def _process_extracted_joke(self, extracted_filepath: str, email_filename: str, original_email_path: str):
         """
@@ -168,7 +167,7 @@ class IncomingProcessor(StageProcessor):
         write_joke_file(output_filepath, updated_headers, content)
         
         self.logger.info(
-            f"Created joke file {joke_id}.txt from {email_filename}"
+            f"{joke_id} Created joke file from {email_filename}"
         )
     
     def _move_to_output(self, filepath: str, headers: Dict[str, str], content: str):
@@ -182,9 +181,9 @@ class IncomingProcessor(StageProcessor):
         # Delete the source email file
         try:
             os.remove(filepath)
-            self.logger.info(f"Deleted source email file: {filepath}")
+            self.logger.info(f"{os.path.basename(filepath)} Deleted source email file")
         except Exception as e:
-            self.logger.error(f"Failed to delete source email file {filepath}: {e}")
+            self.logger.error(f"{os.path.basename(filepath)} Failed to delete source email file: {e}")
     
     def _move_to_reject(self, filepath: str, headers: Dict[str, str], content: str, reason: str):
         """
@@ -209,9 +208,9 @@ class IncomingProcessor(StageProcessor):
         reject_path = os.path.join(reject_dir, email_filename)
         try:
             shutil.move(filepath, reject_path)
-            self.logger.info(f"Moved rejected email {email_filename} to {reject_dir}. Reason: {reason}")
+            self.logger.info(f"{email_filename} Moved to rejected. Reason: {reason}")
         except Exception as e:
-            self.logger.error(f"Failed to move rejected email {filepath}: {e}")
+            self.logger.error(f"{email_filename} Failed to move to rejected: {e}")
 
 
 def main():

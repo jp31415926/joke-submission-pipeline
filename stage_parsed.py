@@ -50,7 +50,7 @@ class ParsedProcessor(StageProcessor):
       Tuple of (success: bool, updated_headers: dict, updated_content: str, reject_reason: str)
     """
     joke_id = headers.get('Joke-ID', 'unknown')
-    logger.info(f"Processing file for duplicate detection (Joke-ID: {joke_id})")
+    logger.info(f"{joke_id} Processing file for duplicate detection")
     
     # Create temporary file for search_tfidf.py
     temp_file = None
@@ -65,7 +65,7 @@ class ParsedProcessor(StageProcessor):
         temp_file = f.name
         f.write(content)
       
-      logger.debug(f"Created temporary file {temp_file} for TF-IDF search")
+      logger.debug(f"{joke_id} Created temporary file {temp_file} for TF-IDF search")
       
       # Call search_tfidf.py with -1 flag for single-line output
       return_code, stdout, stderr = run_external_script(
@@ -76,16 +76,16 @@ class ParsedProcessor(StageProcessor):
       # Check if script executed successfully
       if return_code != 0:
         error_msg = f"search_tfidf.py failed with return code {return_code}: {stderr}"
-        logger.error(error_msg)
+        logger.error(f"{joke_id} {error_msg}")
         return (False, headers, content, error_msg)
       
       # Parse the duplicate score
       try:
         score, funny_id = parse_tfidf_score(stdout)
-        logger.info(f"Duplicate score for Joke-ID {joke_id}: {score}")
+        logger.info(f"{joke_id} Duplicate score: {score}")
       except ValueError as e:
         error_msg = f"Failed to parse TF-IDF score: {e}"
-        logger.error(error_msg)
+        logger.error(f"{joke_id} {error_msg}")
         return (False, headers, content, error_msg)
       
       # Add metadata to headers
@@ -96,16 +96,16 @@ class ParsedProcessor(StageProcessor):
       threshold = config.DUPLICATE_THRESHOLD
       if score >= threshold:
         reject_reason = f"Duplicate score {score} >= threshold {threshold}"
-        logger.info(f"Rejecting Joke-ID {joke_id}: {reject_reason}")
+        logger.info(f"{joke_id} {reject_reason}")
         return (False, headers, content, reject_reason)
       
       # Not a duplicate
-      logger.info(f"Joke-ID {joke_id} passed duplicate check (score {score} < threshold {threshold})")
+      logger.info(f"{joke_id} Passed duplicate check (score {score} < threshold {threshold})")
       return (True, headers, content, "")
       
     except Exception as e:
       error_msg = f"Unexpected error during duplicate detection: {e}"
-      logger.error(error_msg)
+      logger.error(f"{joke_id} {error_msg}")
       return (False, headers, content, error_msg)
       
     finally:
@@ -113,9 +113,9 @@ class ParsedProcessor(StageProcessor):
       if temp_file and os.path.exists(temp_file):
         try:
           os.remove(temp_file)
-          logger.debug(f"Removed temporary file {temp_file}")
+          logger.debug(f"{joke_id} Removed temporary file {temp_file}")
         except Exception as e:
-          logger.warning(f"Failed to remove temporary file {temp_file}: {e}")
+          logger.warning(f"{joke_id} Failed to remove temporary file {temp_file}: {e}")
 
 
 def main():
