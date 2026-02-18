@@ -64,9 +64,9 @@ def mock_ollama_one_category():
     mock_client = Mock()
     mock_client.system_prompt = 'You are a joke categorizer.'
     mock_client.user_prompt_template = 'Categorize: {content}'
-    mock_client.generate.return_value = json.dumps({"categories": ["Puns"], "confidence": 85, "reason": "This joke uses wordplay with financial terms"})
+    mock_client.generate.return_value = json.dumps({"categories": ["Pun"], "confidence": 85, "reason": "This joke uses wordplay with financial terms"})
     mock_client.parse_structured_response.return_value = {
-      'categories': ['Puns'],
+      'categories': ['Pun'],
       'confidence': '85',
       'reason': 'This joke uses wordplay with financial terms'
     }
@@ -82,9 +82,9 @@ def mock_ollama_two_categories():
     mock_client = Mock()
     mock_client.system_prompt = 'You are a joke categorizer.'
     mock_client.user_prompt_template = 'Categorize: {content}'
-    mock_client.generate.return_value = json.dumps({"categories": ["Animals", "Puns"], "confidence": 90, "reason": "Combines animal subject with wordplay"})
+    mock_client.generate.return_value = json.dumps({"categories": ["Animals", "Pun"], "confidence": 90, "reason": "Combines animal subject with wordplay"})
     mock_client.parse_structured_response.return_value = {
-      'categories': ['Animals', 'Puns'],
+      'categories': ['Animals', 'Pun'],
       'confidence': '90',
       'reason': 'Combines animal subject with wordplay'
     }
@@ -100,9 +100,9 @@ def mock_ollama_three_categories():
     mock_client = Mock()
     mock_client.system_prompt = 'You are a joke categorizer.'
     mock_client.user_prompt_template = 'Categorize: {content}'
-    mock_client.generate.return_value = json.dumps({"categories": ["Animals", "Puns", "Food"], "confidence": 88, "reason": "Contains animal theme, wordplay, and food reference"})
+    mock_client.generate.return_value = json.dumps({"categories": ["Animals", "Pun", "Food"], "confidence": 88, "reason": "Contains animal theme, wordplay, and food reference"})
     mock_client.parse_structured_response.return_value = {
-      'categories': ['Animals', 'Puns', 'Food'],
+      'categories': ['Animals', 'Pun', 'Food'],
       'confidence': '88',
       'reason': 'Contains animal theme, wordplay, and food reference'
     }
@@ -134,7 +134,7 @@ def mock_ollama_invalid_category():
 def mock_ollama_too_many_categories():
   """Mock Ollama client that returns too many categories (11 > max of 10)."""
   too_many = [
-    "Animals", "Puns", "Food", "Technology", "Sports",
+    "Animals", "Pun", "Food", "Technology", "Sports",
     "Music", "Movie", "Science", "Travel", "History", "Weather"
   ]
   with patch('stage_formatted.OllamaClient') as mock_client_class:
@@ -161,9 +161,9 @@ def mock_ollama_low_confidence():
     mock_client.system_prompt = 'You are a joke categorizer.'
     mock_client.user_prompt_template = 'Categorize: {content}'
     import json as json_lib
-    mock_client.generate.return_value = json_lib.dumps({"categories": ["Puns"], "confidence": 45, "reason": "Not very confident about this categorization"})
+    mock_client.generate.return_value = json_lib.dumps({"categories": ["Pun"], "confidence": 45, "reason": "Not very confident about this categorization"})
     mock_client.parse_structured_response.return_value = {
-      'categories': ['Puns'],
+      'categories': ['Pun'],
       'confidence': '45',
       'reason': 'Not very confident about this categorization'
     }
@@ -197,7 +197,7 @@ def test_one_category(setup_test_environment, mock_ollama_one_category):
 
   # Verify metadata
   headers, content = parse_joke_file(output_file)
-  assert headers['Categories'] == 'Puns'
+  assert headers['Categories'] == 'Pun'
   assert headers['Category-Confidence'] == '85'
   assert headers['Pipeline-Stage'] == config.STAGES['categorized']
 
@@ -226,7 +226,7 @@ def test_two_categories(setup_test_environment, mock_ollama_two_categories):
 
   # Verify metadata
   headers, content = parse_joke_file(output_file)
-  assert headers['Categories'] == 'Animals, Puns'
+  assert headers['Categories'] == 'Animals, Pun'
   assert headers['Category-Confidence'] == '90'
 
 
@@ -254,7 +254,7 @@ def test_three_categories(setup_test_environment, mock_ollama_three_categories):
 
   # Verify metadata
   headers, content = parse_joke_file(output_file)
-  assert headers['Categories'] == 'Animals, Puns, Food'
+  assert headers['Categories'] == 'Animals, Pun, Food'
   assert headers['Category-Confidence'] == '88'
 
 
@@ -322,7 +322,7 @@ def test_too_many_valid_categories_truncated(
   assert len(categories) == joke_categories.MAX_CATEGORIES_PER_JOKE
   # First 10 of the 11 provided should be kept (Weather is the 11th, dropped)
   expected = [
-    "Animals", "Puns", "Food", "Technology", "Sports",
+    "Animals", "Pun", "Food", "Technology", "Sports",
     "Music", "Movie", "Science", "Travel", "History"
   ]
   assert categories == expected
@@ -378,7 +378,7 @@ def test_invalid_and_over_max_categories(setup_test_environment):
     # 12 categories: 4 invalid interspersed. After filtering: 8 valid (within max=10).
     mock_client.generate.return_value = json.dumps({
       "categories": [
-        "Animals", "FakeOne", "Puns", "Food", "FakeTwo",
+        "Animals", "FakeOne", "Pun", "Food", "FakeTwo",
         "Technology", "Sports", "FakeThree", "Music", "Movie",
         "Science", "FakeFour"
       ],
@@ -387,7 +387,7 @@ def test_invalid_and_over_max_categories(setup_test_environment):
     })
     mock_client.parse_structured_response.return_value = {
       'categories': [
-        "Animals", "FakeOne", "Puns", "Food", "FakeTwo",
+        "Animals", "FakeOne", "Pun", "Food", "FakeTwo",
         "Technology", "Sports", "FakeThree", "Music", "Movie",
         "Science", "FakeFour"
       ],
@@ -412,7 +412,7 @@ def test_invalid_and_over_max_categories(setup_test_environment):
     headers, content = parse_joke_file(output_file)
     categories = [cat.strip() for cat in headers['Categories'].split(',')]
     assert categories == [
-      "Animals", "Puns", "Food", "Technology", "Sports",
+      "Animals", "Pun", "Food", "Technology", "Sports",
       "Music", "Movie", "Science"
     ]
 
@@ -428,7 +428,7 @@ def test_invalid_and_over_max_truncated(setup_test_environment):
     # 13 categories: 1 invalid + 12 valid → filter to 12 valid → truncate to 10
     mock_client.generate.return_value = json.dumps({
       "categories": [
-        "Animals", "FakeOne", "Puns", "Food", "Technology", "Sports",
+        "Animals", "FakeOne", "Pun", "Food", "Technology", "Sports",
         "Music", "Movie", "Science", "Travel", "History", "Weather", "Age"
       ],
       "confidence": 80,
@@ -436,7 +436,7 @@ def test_invalid_and_over_max_truncated(setup_test_environment):
     })
     mock_client.parse_structured_response.return_value = {
       'categories': [
-        "Animals", "FakeOne", "Puns", "Food", "Technology", "Sports",
+        "Animals", "FakeOne", "Pun", "Food", "Technology", "Sports",
         "Music", "Movie", "Science", "Travel", "History", "Weather", "Age"
       ],
       'confidence': '80',
@@ -462,7 +462,7 @@ def test_invalid_and_over_max_truncated(setup_test_environment):
     assert len(categories) == joke_categories.MAX_CATEGORIES_PER_JOKE
     # FakeOne filtered, then first 10 of remaining 12 kept
     assert categories == [
-      "Animals", "Puns", "Food", "Technology", "Sports",
+      "Animals", "Pun", "Food", "Technology", "Sports",
       "Music", "Movie", "Science", "Travel", "History"
     ]
 
@@ -544,9 +544,9 @@ def test_case_insensitive_category_matching(setup_test_environment):
     mock_client = Mock()
     mock_client.system_prompt = 'You are a joke categorizer.'
     mock_client.user_prompt_template = 'Categorize: {content}'
-    mock_client.generate.return_value = json.dumps({"categories": ["puns"], "confidence": 85, "reason": "Testing case insensitivity"})
+    mock_client.generate.return_value = json.dumps({"categories": ["pun"], "confidence": 85, "reason": "Testing case insensitivity"})
     mock_client.parse_structured_response.return_value = {
-      'categories': ['puns'],
+      'categories': ['pun'],
       'confidence': '85',
       'reason': 'Testing case insensitivity'
     }
@@ -573,7 +573,7 @@ def test_case_insensitive_category_matching(setup_test_environment):
 
     # Verify category was normalized to canonical form
     headers, content = parse_joke_file(output_file)
-    assert headers['Categories'] == 'Puns'  # Canonical capitalization
+    assert headers['Categories'] == 'Pun'  # Canonical capitalization
 
 
 def test_llm_error_handling(setup_test_environment):
