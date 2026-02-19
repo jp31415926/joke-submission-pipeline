@@ -103,9 +103,11 @@ OLLAMA_FORMATTING = {
 - Do not change the wording or tone unless it is necessary for clarity.
 - Keep the joke's punchline intact.
 - No markdown formatting. Do not use em dashes
-- Give a confidence score of 0-100
-- Respond ONLY with valid JSON in this exact format:
-{{"formatted_joke": "the improved joke text here", "confidence": 0, "changes": "brief description of changes, or None"}}
+- Respond ONLY in this exact format (two header lines, a blank line, then the corrected joke):
+Confidence: <number 0-100>
+Changes: <brief description of changes, or None>
+
+<the corrected joke text here, preserving all paragraphs and line breaks>
 
 <joke>
 {content}

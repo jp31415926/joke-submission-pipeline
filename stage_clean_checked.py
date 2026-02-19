@@ -5,7 +5,6 @@ Stage 04: Clean Checked - Formatting
 This stage uses Ollama LLM to improve joke grammar and punctuation.
 """
 
-import json
 from typing import Tuple, Dict
 
 from stage_processor import StageProcessor
@@ -36,6 +35,45 @@ class CleanCheckedProcessor(StageProcessor):
       stage_name="formatting"
     )
     self.min_confidence = config.CATEGORIZATION_MIN_CONFIDENCE
+
+  def _parse_llm_response(
+    self,
+    response_text: str
+  ) -> Tuple[Dict[str, str], str]:
+    """
+    Parse an LLM response in header+content format.
+
+    Expected format::
+
+      Confidence: <number>
+      Changes: <description>
+
+      <joke content, possibly multi-line with blank lines>
+
+    Args:
+      response_text: Raw response text from LLM
+
+    Returns:
+      Tuple of (headers_dict, joke_content). joke_content is empty
+      string if no blank line separator was found.
+    """
+    headers = {}
+    lines = response_text.strip().splitlines()
+    content_start = None
+
+    for i, line in enumerate(lines):
+      if line.strip() == '':
+        content_start = i + 1
+        break
+      if ':' in line:
+        key, _, value = line.partition(':')
+        headers[key.strip()] = value.strip()
+
+    if content_start is None:
+      return headers, ''
+
+    content = '\n'.join(lines[content_start:]).strip()
+    return headers, content
 
   def process_file(
     self,
@@ -69,39 +107,32 @@ class CleanCheckedProcessor(StageProcessor):
         timeout=config.OLLAMA_TIMEOUT
       )
 
-      # Parse JSON response
-      try:
-        self.logger.debug(f"{joke_id} response: {response_text}")
-        response_dict = json.loads(response_text.strip())
-      except json.JSONDecodeError as e:
-        self.logger.error(
-          f"{joke_id} Failed to parse JSON response: {e}"
-        )
-        # Fall back to old parsing method
-        response_dict = self.ollama_client.parse_structured_response(
-          response_text,
-          ['formatted_joke', 'confidence', 'changes']
-        )
+      self.logger.debug(f"{joke_id} response: {response_text}")
+
+      # Parse header+content format response
+      response_headers, formatted_joke = self._parse_llm_response(response_text)
 
       # Extract formatted joke
-      formatted_joke = response_dict.get('formatted_joke', '').strip()
+      formatted_joke = formatted_joke.strip()
       if not formatted_joke:
         error_msg = "LLM did not return formatted joke"
         self.logger.error(f"{joke_id} {error_msg}")
         return (False, headers, content, error_msg)
 
       # Extract confidence
-      confidence = response_dict.get('confidence')
-      if confidence is None:
-        confidence = self.ollama_client.extract_confidence(response_dict)
-      if confidence is None:
+      confidence_str = response_headers.get('Confidence', '')
+      try:
+        confidence = int(confidence_str)
+        if not 0 <= confidence <= 100:
+          raise ValueError(f"out of range: {confidence}")
+      except (ValueError, TypeError):
         self.logger.warning(
-          f"{joke_id} Could not extract confidence, using 0"
+          f"{joke_id} Could not parse confidence '{confidence_str}', using 0"
         )
         confidence = 0
 
       # Extract changes description
-      changes = response_dict.get('changes', 'No changes description provided')
+      changes = response_headers.get('Changes', 'No changes description provided')
 
       # Update headers
       headers['Format-Status'] = 'PASS'
@@ -118,21 +149,18 @@ class CleanCheckedProcessor(StageProcessor):
           f"{self.min_confidence}"
         )
         self.logger.warning(
-          f"{joke_id} Rejected due to low format confidence: {confidence} < {self.min_confidence}"
+          f"{joke_id} Rejected due to low format confidence: "
+          f"{confidence} < {self.min_confidence}"
         )
         return (False, headers, content, reject_reason)
 
       # Success - return with formatted content
-      self.logger.info(
-        f"{joke_id} Formatting complete"
-      )
+      self.logger.info(f"{joke_id} Formatting complete")
       return (True, headers, formatted_joke, "")
 
     except Exception as e:
       # Handle LLM errors
-      self.logger.error(
-        f"{joke_id} LLM error: {e}"
-      )
+      self.logger.error(f"{joke_id} LLM error: {e}")
       reject_reason = f"LLM error: {str(e)}"
       return (False, headers, content, reject_reason)
 

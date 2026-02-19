@@ -58,13 +58,13 @@ def mock_ollama_high_confidence():
     mock_client = Mock()
     mock_client.system_prompt = 'You are an editor improving joke formatting and grammar.'
     mock_client.user_prompt_template = 'Improve the grammar of this joke: {content}'
-    mock_client.generate.return_value = '{"formatted_joke": "Why did the computer go to the doctor? Because it had a virus! The doctor said, \\"Take two tablets and call me in the morning.\\"", "confidence": 85, "changes": "Fixed capitalization, added proper punctuation, improved sentence structure"}'
-    mock_client.parse_structured_response.return_value = {
-      'formatted_joke': 'Why did the computer go to the doctor? Because it had a virus! The doctor said, "Take two tablets and call me in the morning."',
-      'confidence': '85',
-      'changes': 'Fixed capitalization, added proper punctuation, improved sentence structure'
-    }
-    mock_client.extract_confidence.return_value = 85
+    mock_client.generate.return_value = (
+      'Confidence: 85\n'
+      'Changes: Fixed capitalization, added proper punctuation, improved sentence structure\n'
+      '\n'
+      'Why did the computer go to the doctor? Because it had a virus! '
+      'The doctor said, "Take two tablets and call me in the morning."'
+    )
     mock_client_class.return_value = mock_client
     yield mock_client
 
@@ -76,13 +76,12 @@ def mock_ollama_low_confidence():
     mock_client = Mock()
     mock_client.system_prompt = 'You are an editor improving joke formatting and grammar.'
     mock_client.user_prompt_template = 'Improve the grammar of this joke: {content}'
-    mock_client.generate.return_value = '{"formatted_joke": "Why did the computer go to the doctor? Because it had a virus!", "confidence": 45, "changes": "Original text was very poor quality, attempted improvements"}'
-    mock_client.parse_structured_response.return_value = {
-      'formatted_joke': 'Why did the computer go to the doctor? Because it had a virus!',
-      'confidence': '45',
-      'changes': 'Original text was very poor quality, attempted improvements'
-    }
-    mock_client.extract_confidence.return_value = 45
+    mock_client.generate.return_value = (
+      'Confidence: 45\n'
+      'Changes: Original text was very poor quality, attempted improvements\n'
+      '\n'
+      'Why did the computer go to the doctor? Because it had a virus!'
+    )
     mock_client_class.return_value = mock_client
     yield mock_client
 
@@ -92,21 +91,19 @@ def mock_ollama_well_formatted():
   """Mock Ollama client for already well-formatted joke."""
   with patch('stage_clean_checked.OllamaClient') as mock_client_class:
     mock_client = Mock()
-    formatted_text = 'A mathematician planted a garden. When asked why all the plants were in perfect rows and columns, he replied, "I wanted to see if I could grow square roots."'
-    import json as json_lib
+    formatted_text = (
+      'A mathematician planted a garden. When asked why all the plants were in '
+      'perfect rows and columns, he replied, "I wanted to see if I could grow '
+      'square roots."'
+    )
     mock_client.system_prompt = 'You are an editor improving joke formatting and grammar.'
     mock_client.user_prompt_template = 'Improve the grammar of this joke: {content}'
-    mock_client.generate.return_value = json_lib.dumps({
-      "formatted_joke": formatted_text,
-      "confidence": 95,
-      "changes": "Minimal changes needed, text was already well formatted"
-    })
-    mock_client.parse_structured_response.return_value = {
-      'formatted_joke': formatted_text,
-      'confidence': '95',
-      'changes': 'Minimal changes needed, text was already well formatted'
-    }
-    mock_client.extract_confidence.return_value = 95
+    mock_client.generate.return_value = (
+      'Confidence: 95\n'
+      'Changes: Minimal changes needed, text was already well formatted\n'
+      '\n'
+      f'{formatted_text}'
+    )
     mock_client_class.return_value = mock_client
     yield mock_client
 
@@ -247,7 +244,10 @@ def test_content_updated(
   assert formatted_content != original_content
 
   # Formatted content should be the one from LLM
-  assert formatted_content == 'Why did the computer go to the doctor? Because it had a virus! The doctor said, "Take two tablets and call me in the morning."'
+  assert formatted_content == (
+    'Why did the computer go to the doctor? Because it had a virus! '
+    'The doctor said, "Take two tablets and call me in the morning."'
+  )
 
 
 def test_metadata_updates(
@@ -320,20 +320,15 @@ def test_llm_error_handling(setup_test_environment):
 
 
 def test_missing_formatted_joke(setup_test_environment):
-  """Test handling when LLM doesn't return formatted joke."""
+  """Test handling when LLM response contains no joke content."""
   env = setup_test_environment
 
-  # Mock LLM to return response without formatted_joke field
+  # Mock LLM to return headers only with no blank line + content
   with patch('stage_clean_checked.OllamaClient') as mock_client_class:
     mock_client = Mock()
     mock_client.system_prompt = 'You are an editor improving joke formatting and grammar.'
     mock_client.user_prompt_template = 'Improve the grammar of this joke: {content}'
-    mock_client.generate.return_value = '{"confidence": 85, "changes": "Some changes made"}'
-    mock_client.parse_structured_response.return_value = {
-      'confidence': '85',
-      'changes': 'Some changes made'
-    }
-    mock_client.extract_confidence.return_value = 85
+    mock_client.generate.return_value = 'Confidence: 85\nChanges: Some changes made'
     mock_client_class.return_value = mock_client
 
     # Copy joke to input directory
@@ -373,20 +368,14 @@ Little Johnny raises his hand and says, "I want to be a millionaire, have a beau
 
 The teacher, shocked, doesn't know what to say. She decides not to acknowledge Johnny's answer and continues with the lesson.'''
 
-    import json as json_lib
     mock_client.system_prompt = 'You are an editor improving joke formatting and grammar.'
     mock_client.user_prompt_template = 'Improve the grammar of this joke: {content}'
-    mock_client.generate.return_value = json_lib.dumps({
-      "formatted_joke": multiline_joke,
-      "confidence": 90,
-      "changes": "Fixed grammar and punctuation"
-    })
-    mock_client.parse_structured_response.return_value = {
-      'formatted_joke': multiline_joke,
-      'confidence': '90',
-      'changes': 'Fixed grammar and punctuation'
-    }
-    mock_client.extract_confidence.return_value = 90
+    mock_client.generate.return_value = (
+      'Confidence: 90\n'
+      'Changes: Fixed grammar and punctuation\n'
+      '\n'
+      f'{multiline_joke}'
+    )
     mock_client_class.return_value = mock_client
 
     # Copy joke to input directory
