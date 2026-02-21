@@ -82,7 +82,7 @@ class IncomingProcessor(StageProcessor):
             self.logger.debug(f"{email_filename} Calling joke-extract.py")
             return_code, stdout, stderr = run_external_script(
                 config.JOKE_EXTRACTOR,
-                [filepath, success_dir, fail_dir],
+                [success_dir, fail_dir, filepath], # was [filepath, success_dir, fail_dir],
                 timeout=60
             )
             
