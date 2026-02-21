@@ -146,11 +146,11 @@ class CategorizedProcessor(StageProcessor):
 
         # Parse JSON response
         try:
-          self.logger.debug(f"{joke_id} response: {response_text}")
+          self.logger.debug(f"{joke_id} response: {response_text.replace('\n', '\\n')}")
           response_dict = json.loads(response_text.strip())
         except json.JSONDecodeError as e:
           self.logger.error(
-            f"{joke_id} Failed to parse JSON response: {e}"
+            f"{joke_id} Failed to parse JSON response: {e}: {response_text.replace('\n', '\\n')}"
           )
           # Fall back to old parsing method
           response_dict = self.ollama_client.parse_structured_response(
