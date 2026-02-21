@@ -194,7 +194,7 @@ To get to the other side!
 #### joke-extract.py
 
 * **Location**: Path specified in `config.py` (config.JOKE_EXTRACTOR)
-* **Invocation**: `joke-extract.py <email_file> <success_dir> <fail_dir>`
+* **Invocation**: `joke-extract.py <success_dir> <fail_dir> <email_file>`
 * **Input**: Single Maildir email file
 * **Output**: 
   - Zero or more joke files in `<success_dir>`

@@ -3,7 +3,7 @@
 Mock joke-extract.py for testing purposes.
 
 This script simulates the behavior of the real joke-extract.py:
-- Takes email file, success_dir, and fail_dir as arguments
+- Takes success_dir, fail_dir, and email file as arguments
 - Extracts jokes from the email and writes them to success_dir
 - Returns 0 on success, non-zero on failure
 """
@@ -85,13 +85,13 @@ This is a test joke.
 def main():
     """Main entry point."""
     if len(sys.argv) != 4:
-        print("Usage: joke-extract.py <email_file> <success_dir> <fail_dir>", file=sys.stderr)
+        print("Usage: joke-extract.py <success_dir> <fail_dir> <email_file>", file=sys.stderr)
         sys.exit(1)
-    
-    email_path = sys.argv[1]
-    success_dir = sys.argv[2]
-    fail_dir = sys.argv[3]
-    
+
+    success_dir = sys.argv[1]
+    fail_dir = sys.argv[2]
+    email_path = sys.argv[3]
+
     # Check that email file exists
     if not os.path.exists(email_path):
         print(f"Error: Email file not found: {email_path}", file=sys.stderr)

@@ -13,7 +13,7 @@ Requirements:
    - Implement process_file(filepath, headers, content):
      * Extract email filename from filepath
      * Create temporary success and fail directories
-     * Call joke-extract.py: run_external_script(config.JOKE_EXTRACTOR, [filepath, success_dir, fail_dir])
+     * Call joke-extract.py: run_external_script(config.JOKE_EXTRACTOR, [success_dir, fail_dir, filepath])
      * Check return code (0 = success)
      * For each file in success_dir:
        - Read extracted joke
