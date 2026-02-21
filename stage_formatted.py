@@ -120,7 +120,7 @@ class FormattedProcessor(StageProcessor):
 
     # Construct prompts from config
     system_prompt = self.ollama_client.system_prompt
-    categories_list_str = ', '.join(self.valid_categories)
+    categories_list_str = ','.join(self.valid_categories)
     user_prompt = self.ollama_client.user_prompt_template.format(
       categories_list=categories_list_str,
       content=content
@@ -136,11 +136,11 @@ class FormattedProcessor(StageProcessor):
 
       # Parse JSON response
       try:
-        self.logger.debug(f"{joke_id} response: {response_text}")
+        self.logger.debug(f"{joke_id} response: {response_text.replace('\n', '\\n')}")
         response_dict = json.loads(response_text.strip())
       except json.JSONDecodeError as e:
         self.logger.error(
-          f"{joke_id} Failed to parse JSON response: {e}"
+          f"{joke_id} Failed to parse JSON response: {e}: {response_text.replace('\n', '\\n')}"
         )
         # Fall back to old parsing method
         response_dict = self.ollama_client.parse_structured_response(
@@ -172,15 +172,20 @@ class FormattedProcessor(StageProcessor):
         self.logger.error(f"{joke_id} {error_msg}")
         return (False, headers, content, error_msg)
 
+      ### REMOVE CONFIDENCE START
       # Extract confidence
-      confidence = response_dict.get('confidence')
-      if confidence is None:
-        confidence = self.ollama_client.extract_confidence(response_dict)
-      if confidence is None:
-        self.logger.warning(
-          f"{joke_id} Could not extract confidence, using 0"
-        )
-        confidence = 0
+      # confidence = response_dict.get('confidence')
+      # if confidence is None:
+      #   confidence = self.ollama_client.extract_confidence(response_dict)
+      # if confidence is None:
+      #   self.logger.warning(
+      #     f"{joke_id} Could not extract confidence, using 0"
+      #   )
+      #   confidence = 0
+
+      # don't care about confidence for categories
+      confidence = 100
+      ### REMOVE CONFIDENCE END
 
       # Extract reason
       reason = response_dict.get('reason', 'No reason provided')
