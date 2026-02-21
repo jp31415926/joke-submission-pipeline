@@ -1,5 +1,7 @@
 """Parser for McHawList joke emails."""
 
+import logging
+
 from .email_data import EmailData, JokeData
 from . import register_parser
 
@@ -134,10 +136,14 @@ def parse(email: EmailData) -> list[JokeData]:
             final_text = final_text.strip()
             
             if final_text:
-                jokes.append(JokeData(
-                    text=final_text,
-                    submitter=email.from_header,
-                    title=title
-                ))
+                lower = final_text.lower()
+                if 'http' in lower or 'mailto' in lower or 'copyright' in lower or '©' in lower:
+                    logging.info("Found 'http', 'mailto' or 'copyright': discarding joke")
+                else:
+                    jokes.append(JokeData(
+                        text=final_text,
+                        submitter=email.from_header,
+                        title=title
+                    ))
     
     return jokes

@@ -1,110 +1,125 @@
-"""Parser for Steve Sanderson's 'Sunday Fun Stuff' emails."""
+#!/usr/bin/env python3
+"""Parser for Steve Sanderson (aardvark@illinois.edu) joke emails."""
 
-from .email_data import EmailData, JokeData
-
+import re
 import logging
-# Configure logging to stderr for visibility in pipelines
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
-
+from .email_data import EmailData, JokeData
 from . import register_parser
 
+
+_SOJ_PREFIXES = (
+  "Mikey's Funnies:",
+  "Mikey\u2019s Funnies:",  # RIGHT SINGLE QUOTATION MARK variant
+  "Mikey\u00e2s Funnies:",  # mojibake variant (â from misencoded UTF-8)
+  "Mikeyâs Funnies:",
+  "A Joke A Day:",
+  "A Joke A Day!",
+  "The Good Clean Fun List:",
+)
+
+
 def _can_be_parsed_here(email: EmailData) -> bool:
-    #return False
-    return "aardvark@illinois.edu" in email.from_header
+  """Return True if this email is from Steve Sanderson's aardvark joke list."""
+  return "aardvark@illinois.edu" in email.from_header.lower()
+
+
+def _is_soj(line: str) -> bool:
+  """Return True if line is a Start-Of-Joke marker."""
+  if line.startswith("*" * 20):
+    return True
+  return any(line.startswith(prefix) for prefix in _SOJ_PREFIXES)
+
+
+def _is_eof(line: str) -> bool:
+  """Return True if line is the End-Of-Email marker."""
+  return line.startswith("Steve Sanderson")
+
+
+def _title_from_line(line: str) -> str:
+  """
+  Try to extract a title from a candidate line.
+
+  Strips non-ASCII-printable characters (encoding artifacts such as Â and
+  non-breaking spaces) before checking length. Returns line.title() if the
+  cleaned result is 1-35 characters, otherwise returns empty string.
+  """
+  clean = re.sub(r'[^\x20-\x7E]', '', line).strip()
+  if clean and len(clean) <= 35:
+    return clean.title()
+  return ""
+
+
+def _format_body(lines: list[str]) -> str:
+  """
+  Format collected HTML lines into joke body text.
+
+  Each non-blank line is treated as a full paragraph (HTML/lynx-dump format).
+  Returns non-blank lines joined by double newlines, with outer whitespace stripped.
+  """
+  paragraphs = [line for line in lines if line.strip()]
+  return "\n\n".join(paragraphs).strip()
+
 
 @register_parser(_can_be_parsed_here)
-
 def parse(email: EmailData) -> list[JokeData]:
-    """
-    Parse Steve Sanderson's "Sunday Fun Stuff" email format.
+  """
+  Parse Steve Sanderson joke emails from aardvark@illinois.edu.
 
-    This parser identifies jokes delimited by:
-    - Start marker: `*` repeated =10 times (`**********`)
-    - Title: a line ending with `:`
-    - Joke body: lines up until the next `[...]:`-style closing tag (e.g., `[end]`)
-    - Ends at a line containing exactly `Steve Sanderson`
+  HTML content is preferred; returns [] if HTML is empty.
 
-    Parameters
-    ----------
-    email : EmailData
-        Email to parse
-        
-    Returns
-    -------
-    list[JokeData]
-        List of extracted jokes in JokeData.
-    """
-    # storage for all the jokes that are collected. This is the return variable
-    jokes = []
+  Jokes are delimited by SOJ markers (20+ asterisks, 'A Joke A Day:',
+  "Mikey's Funnies:", 'The Good Clean Fun List:', etc.) and terminated by
+  the 'Steve Sanderson' footer line.
 
-    joke_submitter = "Steve C Sanderson <aardvark@illinois.edu>"
-    joke_text = ''
-    joke_title = ''
+  The title is the first non-blank line after an SOJ if it is <=35
+  characters (after stripping encoding artifacts); otherwise title is "".
+  """
+  if not email.html.strip():
+    return []
 
-    i = 0
-    state = 0
-    lines = []
-    if len(email.html) > 0:
-        lines = email.html.split('\n')
-    else:
-        lines = email.text.split('\n')
+  jokes = []
+  submitter = email.from_header
+  lines = email.html.split('\n')
 
-    # State machine for parsing:
-    # 0: wait for "*..." line (start of joke block)
-    # 1: skip blank lines, then expect title (ends with ':')
-    # 2: skip blank line before joke body
-    # 3: collect lines until closing tag (e.g., `[end]`)
-    while i < len(lines):
-        line = lines[i]
-        #logging.info(f"state {state}: {line}")
+  # States: PREAMBLE, TITLE_SEARCH, COLLECTING
+  state = "PREAMBLE"
+  current_title = ""
+  current_body: list[str] = []
 
-        match state:
-            case 0:  # Wait for start delimiter
-                if line.startswith('*' * 10):  # e.g., "**********"
-                    state = 1
-                i += 1
+  def _save_joke() -> None:
+    body = _format_body(current_body)
+    if body:
+      jokes.append(JokeData(text=body, submitter=submitter, title=current_title))
 
-            case 1:  # Find title (line ending with ':')
-                if not line:
-                    i += 1
-                elif line.endswith(':'): # first line ends with colon is not part of the joke, so skip it
-                    state = 2
-                    i += 1
-                elif line == line.upper():
-                    state = 2
-                    # convert to title capitization
-                    joke_title = line.title()
-                    i += 1
-                elif line == 'Steve Sanderson':
-                    # End of content
-                    i = len(lines)
-                else:
-                    # No title found, jump to content (non-standard)
-                    state = 3
+  for line in lines:
+    stripped = line.strip()
 
-            case 2:  # Skip blank line before joke body
-                if not line:
-                    i += 1
-                state = 3
+    if _is_eof(stripped):
+      if state == "COLLECTING":
+        _save_joke()
+      break
 
-            case 3:  # Collect until end marker `[...]`
-                if (line.startswith('[') and line.endswith(']')) or line == 'Steve Sanderson' or \
-                        line.startswith("Mikey's Funnies") or line.startswith("A Joke A Day") or \
-                        line.startswith("The Good Clean Fun List"):
-                    if joke_text:
-                        jokes.append(JokeData(text=joke_text.strip(), submitter=joke_submitter, title=joke_title))
-                    if line == 'Steve Sanderson':
-                        break
-                    joke_text = ""
-                    joke_title = ""
-                    state = 1
-                    i += 1
-                else:
-                    if line:
-                        joke_text += line + "\n\n"
-                    i += 1
+    if _is_soj(stripped):
+      if state == "COLLECTING":
+        _save_joke()
+      current_title = ""
+      current_body = []
+      state = "TITLE_SEARCH"
+      continue
 
-    return jokes
+    if state == "PREAMBLE":
+      continue
+
+    if state == "TITLE_SEARCH":
+      if not stripped:
+        continue
+      current_title = _title_from_line(line)
+      if not current_title:
+        # First content line is too long to be a title; include it in body
+        current_body.append(line)
+      state = "COLLECTING"
+      continue
+
+    current_body.append(line)
+
+  return jokes

@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
 """
-Script to extract joke content from email files, supporting multiple joke email formats.
-Supports parsing:
-- "You Make Me Laugh" emails (CrosswalkMail)
-- Steve Sanderson's "Sunday Fun Stuff" emails
-Prioritizes `text/plain` over `text/html`, and cleans up content before output.
+Extract jokes from newsletter email files (.eml) into structured text files.
+
+Each email is matched to a parser in the parsers/ package. On success the
+extracted jokes are written to <output_success_dir>; on failure the raw
+email content is dumped to <output_failure_dir> for review.
 
 Usage:
-    python joke-extract.py <email_file> <output_directory>
+    python joke-extract.py <output_success_dir> <output_failure_dir> <email_file> [...]
 """
 
 import sys
 import os
 import email
+import json
 import tempfile
 import logging
 import subprocess
@@ -34,27 +35,20 @@ def parse_email(file_path: str):
     Parameters
     ----------
     file_path : str
-        Path to the email file (must be UTF-8 encoded text).
+        Path to the email file (read as ISO-8859-1).
 
     Returns
     -------
-    email.message.Message
-        Parsed email message object.
-
-    Raises
-    ------
-    SystemExit
-        Exits with status code 1 and logs error if parsing fails.
+    email.message.Message or None
+        Parsed email message object, or None if parsing failed (error
+        already printed to stdout).
     """
     try:
-        #with open(file_path, 'r', encoding='utf-8') as file:
-
         with open(file_path, 'r', encoding='ISO-8859-1') as file:
             return email.message_from_file(file)
     except Exception as e:
         logging.error(f"Failed to parse email: {e}")
-        print(f"502 Failed to parse email: {e}")
-        sys.exit(1)
+        return None
 
 
 def cleanup_subject(subject: str) -> str:
@@ -145,8 +139,7 @@ def extract_text_content(email_message) -> str:
     Returns
     -------
     str
-        List with one string per joined part (often a list of one element).
-        Content is cleaned via `cleanup_body`.
+        Concatenated plain-text content, cleaned via `cleanup_body`.
     """
     text = ""
 
@@ -157,8 +150,6 @@ def extract_text_content(email_message) -> str:
                 #text_content = payload.decode('utf-8').strip()
                 text_content = payload.decode('ISO-8859-1').strip()
                 if text_content:
-                    # if text:
-                    #     text += "-=+=-\n"
                     text += cleanup_body(text_content)
 
     return text
@@ -178,9 +169,8 @@ def extract_html_content(email_message) -> str:
 
     Returns
     -------
-    list of str
-        List with one string per converted part, joined with `-=+=-\n`.
-        Content is cleaned via `cleanup_body`.
+    str
+        Concatenated plain-text output from lynx, cleaned via `cleanup_body`.
     """
     text = ""
 
@@ -211,43 +201,32 @@ def extract_html_content(email_message) -> str:
     return text
 
 
-def main():
+def process_one_email(email_file: str, output_success_dir: str, output_failure_dir: str) -> int:
     """
-    Entry point for email joke extraction.
+    Process a single email file and write results to the appropriate directory.
 
-    Command-line arguments:
-        $1 : path to email file
-        $2 : output directory for extracted jokes
+    Parameters
+    ----------
+    email_file : str
+        Path to the .eml file to process.
+    output_success_dir : str
+        Directory to write joke_*.txt files on success.
+    output_failure_dir : str
+        Directory to write email_*.json / email_*.txt on failure.
 
-    Each extracted joke is written to a temporary file in `output_dir`,
-    with `From:` and `Subject:` headers prepended.
-
-    Exit Codes:
-        100 : success (joke extracted)
-        200 : no joke found
-        500 : argument error
-        501 : file not found
-        502 : email parsing error
+    Returns
+    -------
+    int
+        Status code: 100=success, 200=no content, 201=no joke, 501=file missing,
+        502=parse error.
     """
-    if len(sys.argv) != 4:
-        print("500 Usage: joke-extract.py <email_file> <output_success_dir> <output_failure_dir>")
-        sys.exit(1)
-
-    from parsers import _parser_registry
-    logging.info(f"Loaded {len(_parser_registry)} parsers")
-
-    email_file = sys.argv[1]
-    output_success_dir = sys.argv[2]
-    output_failure_dir = sys.argv[3]
-
-    # Validate email file existence
     if not os.path.exists(email_file):
         logging.error(f"Email file does not exist: {email_file}")
-        print(f"501 Email file does not exist: {email_file}")
-        sys.exit(1)
+        return 501
 
-    # Parse the email
     email_message = parse_email(email_file)
+    if email_message is None:
+        return 502
 
     # Extract text and HTML versions
     text_content = extract_text_content(email_message)
@@ -258,27 +237,57 @@ def main():
         logging.info("Text and HTML are identical.")
 
     if text_content or html_content:
-        email = EmailData(
-            text = text_content,
-            html = html_content,
-            from_header = email_message.get('From', '').strip(),
-            subject_header = cleanup_subject(email_message.get('Subject', '').strip())
+        email_data = EmailData(
+            text=text_content,
+            html=html_content,
+            from_header=email_message.get('From', '').strip(),
+            subject_header=cleanup_subject(email_message.get('Subject', '').strip())
         )
 
         # Try to find a custom parser
-        logging.info(f"From: {email.from_header}")
+        logging.info(f"From: {email_data.from_header}")
         jokes = []
-        parser = get_parser(email)
+        parser = get_parser(email_data)
         if parser:
             try:
-                jokes = parser(email)
+                jokes = parser(email_data)
             except Exception as e:
                 logging.exception(f"Parser failed for {email_file}: {e}")
+                jokes = []
         else:
             logging.warning("No parser found to process this email")
+            # Dump the whole email for further study
+            with tempfile.NamedTemporaryFile(
+                mode='w',
+                prefix='email_',
+                suffix='.json',
+                dir=output_failure_dir,
+                delete=False
+            ) as tmp_file:
+                json.dump({
+                    "subject": email_data.subject_header,
+                    "from": email_data.from_header,
+                    "plain_text": email_data.text,
+                    "html_text": email_data.html,
+                }, tmp_file, indent=2, ensure_ascii=False)
+                tmp_file.write('\n')
 
-        if len(jokes) > 0:
-            # Write each joke to a temp file in output dir
+            with tempfile.NamedTemporaryFile(
+                mode='w',
+                prefix='email_',
+                suffix='.txt',
+                dir=output_failure_dir,
+                delete=False
+            ) as tmp_file:
+                tmp_file.write(f"Subject: {email_data.subject_header}\n")
+                tmp_file.write(f"From: {email_data.from_header}\n")
+                tmp_file.write("\n")
+                tmp_file.write(f"-=+=- PLAIN -=+=-\n{email_data.text}\n")
+                tmp_file.write(f"-=+=- HTML -=+=-\n{email_data.html}\n")
+
+
+        if jokes:
+            # Write each joke to a temp file in the success dir
             for joke in jokes:
                 with tempfile.NamedTemporaryFile(
                     mode='w',
@@ -294,43 +303,57 @@ def main():
 
                 logging.info(f"Successfully extracted joke to {tmp_file.name}")
             print(f"100 Successfully extracted {len(jokes)} joke(s)")
+            return 100
         else:
-            # if we didn't get any jokes out of the email, dump the whole email out to a file for further study
-            with tempfile.NamedTemporaryFile(
-                mode='w',
-                prefix='email_',
-                suffix='.json',
-                dir=output_failure_dir,
-                delete=False
-            ) as tmp_file:
-                tmp_file.write("{\n")
-                tmp_file.write(f"  \"subject\": \"{email.subject_header.replace('"', '\\"')}\",\n")
-                tmp_file.write(f"  \"from\": \"{email.from_header.replace('"', '\\"')}\",\n")
-                tmp_file.write(f"  \"plain_text\": \"{email.text.replace('"', '\\"').replace("\n", "\\n")}\",\n")
-                tmp_file.write(f"  \"html_text\": \"{email.html.replace('"', '\\"').replace("\n", "\\n")}\"\n")
-                tmp_file.write("}\n")
-            tmp_file.close()
-
-            with tempfile.NamedTemporaryFile(
-                mode='w',
-                prefix='email_',
-                suffix='.txt',
-                dir=output_failure_dir,
-                delete=False
-            ) as tmp_file:
-                tmp_file.write(f"Subject: {email.subject_header}\n")
-                tmp_file.write(f"From: {email.from_header}\n")
-                tmp_file.write("\n")
-                tmp_file.write(f"-=+=- PLAIN -=+=-\n{email.text}\n")
-                tmp_file.write(f"-=+=- HTML -=+=-\n{email.html}\n")
-            tmp_file.close()
-
-            logging.info(f"201 No joke found in email with Subject: {email.subject_header}. Written to {tmp_file.name}")
-            print(f"201 No joke found in email with Subject: {email.subject_header}. Written to {tmp_file.name}")
+            logging.warning(
+                f"201 No joke found in email with Subject: {email_data.subject_header}."
+            )
+            return 201
 
     else:
-        logging.info("200 No email content found")
-        print("200 No email content found")
+        logging.warning("200 No email content found")
+        return 200
+
+
+def main():
+    """
+    Entry point for email joke extraction.
+
+    Command-line arguments:
+        $1 : output directory for successfully extracted jokes (joke_*.txt)
+        $2 : output directory for emails that yielded no jokes (email_*.json + email_*.txt)
+        $3+: one or more paths to email files to process
+
+    A status line is printed to stdout for each email file:
+        100 : success — joke(s) extracted
+        200 : no text/html content found in email
+        201 : content found but no parser produced a joke
+        500 : wrong number of arguments
+        501 : email file not found
+        502 : email parsing error
+
+    Exit code is 1 if any file produces a 5xx code, otherwise 0.
+    """
+    if len(sys.argv) < 4:
+        logging.error("500 Usage: joke-extract.py <output_success_dir> <output_failure_dir> <email_file> [...]")
+        sys.exit(1)
+
+    from parsers import _parser_registry
+    logging.info(f"Loaded {len(_parser_registry)} parsers")
+
+    output_success_dir = sys.argv[1]
+    output_failure_dir = sys.argv[2]
+    email_files = sys.argv[3:]
+
+    any_error = False
+    for email_file in email_files:
+        logging.info(f"Processing {email_file}")
+        code = process_one_email(email_file, output_success_dir, output_failure_dir)
+        if code >= 500:
+            any_error = True
+
+    if any_error:
+        sys.exit(1)
 
 
 if __name__ == "__main__":

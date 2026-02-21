@@ -1,16 +1,37 @@
-"""Parser for Humor_G emails — see parser-hints.md."""
+"""Parser for Humor_G emails
+
+# PARSER GUIDELINES (DO NOT DELETE)
+## Humor_G mailing list
+
+- HTML format is the preferred format unless it is blank.
+
+- There will only be one joke per email.
+
+- Use `"judib51@comcast.net" in email.from_header.lower()` to match the email to this parser.
+
+- `email.subject_header` cannot be used as the title.
+
+- If `email.subject_header.lower()` contains "toon" or "good ole maxine" or "attachment" in the subject, discard the email by returning []
+
+- There is no start marker. The first line starts with the joke.
+
+- The rest of the text is the joke text, until you see the end marker.
+
+- The end marker is a line that starts with "~~~~~~~~~~" (10x'~'). Do not include that line with the joke.
+
+- If `[cid:` or `http` occurs anywhere in the joke, the joke is to be discarded and return [].
+"""
 
 from .email_data import EmailData, JokeData
 from . import register_parser
 import logging
 import re
 
-logging.basicConfig(level=logging.WARNING)
-
 def _can_be_parsed_here(email: EmailData) -> bool:
     """Return True if this parser can parse the email."""
     # Check if the email is from the Humor_G source
     return "judib51@comcast.net" in email.from_header.lower()
+    #return False
 
 @register_parser(_can_be_parsed_here)
 def parse(email: EmailData) -> list[JokeData]:
@@ -21,8 +42,9 @@ def parse(email: EmailData) -> list[JokeData]:
     # Check subject for discard conditions
     subject_lower = email.subject_header.lower()
     if "toon" in subject_lower or "good ole maxine" in subject_lower or "attachment" in subject_lower:
+        logging.info("Subject contained 'good ole maxine' or 'attachment' ... disregarding")
         return []
-    
+
     # Prefer HTML format if available, otherwise use plain text
     if email.html.strip():
         lines = email.html.split('\n')
@@ -51,11 +73,13 @@ def parse(email: EmailData) -> list[JokeData]:
     
     # If we have joke lines, process them
     if not joke_lines:
+        logging.info("joke content is empty ... disregarding")
         return []
     
     # Check for forbidden content
     full_joke_text = '\n'.join(joke_lines)
     if '[cid:' in full_joke_text.lower() or 'http' in full_joke_text.lower():
+        logging.info("found '[cid:' or 'http' ... disregarding")
         return []
     
     # Format the joke text properly

@@ -1,22 +1,14 @@
 """Parser for 'You Make Me Laugh' (CrosswalkMail) format."""
 
 from .email_data import EmailData, JokeData
-
 from . import register_parser
-import logging
 
-# Configure logging to stderr for visibility in pipelines
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
 
 def _can_be_parsed_here(email: EmailData) -> bool:
     return "crosswalk@crosswalkmail.com" in email.from_header.lower()
-    #return False
+
 
 @register_parser(_can_be_parsed_here)
-
 def parse(email: EmailData) -> list[JokeData]:
     """
     Parse the "You Make Me Laugh" email format.
