@@ -93,7 +93,7 @@ class CleanCheckedProcessor(StageProcessor):
       Tuple of (success, updated_headers, updated_content, reject_reason)
     """
     joke_id = headers.get('Joke-ID', 'unknown')
-    self.logger.info(f"{joke_id} Processing formatting")
+    self.logger.debug(f"{joke_id} Processing formatting")
 
     # Construct prompts from config
     system_prompt = self.ollama_client.system_prompt
@@ -107,7 +107,7 @@ class CleanCheckedProcessor(StageProcessor):
         timeout=config.OLLAMA_TIMEOUT
       )
 
-      self.logger.debug(f"{joke_id} response: {response_text}")
+      self.logger.debug(f"{joke_id} response: {response_text.replace('\n', '\\n')}")
 
       # Parse header+content format response
       response_headers, formatted_joke = self._parse_llm_response(response_text)
@@ -155,7 +155,7 @@ class CleanCheckedProcessor(StageProcessor):
         return (False, headers, content, reject_reason)
 
       # Success - return with formatted content
-      self.logger.info(f"{joke_id} Formatting complete")
+      self.logger.debug(f"{joke_id} Formatting complete")
       return (True, headers, formatted_joke, "")
 
     except Exception as e:

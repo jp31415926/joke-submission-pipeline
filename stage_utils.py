@@ -21,7 +21,7 @@ def signal_handler(signum, frame):
   if server_pool:
     server_pool.cleanup_all_locks()
 
-  logger.info("Cleanup complete, exiting")
+  logger.debug("Cleanup complete, exiting")
   sys.exit(1)
 
 

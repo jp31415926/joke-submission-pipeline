@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 def main() -> None:
     """Main function to build TF-IDF vectors from jokes."""
-    logger.info("Starting TF-IDF vectorizer build")
+    logger.debug("Starting TF-IDF vectorizer build")
 
     # Fetch jokes from database
     try:
@@ -44,7 +44,7 @@ def main() -> None:
         titles[joke_id] = title
         texts.append(text)
 
-    logger.info(f"Fetched {len(texts)} jokes")
+    logger.debug(f"Fetched {len(texts)} jokes")
 
     # Build TF-IDF vectorizer
     vectorizer = TfidfVectorizer(
@@ -69,7 +69,7 @@ def main() -> None:
     with open(output_dir / "tfidf_titles.pkl", "wb") as f:
         pickle.dump(titles, f)
 
-    logger.info(f"TF-IDF build finished: {len(texts)} jokes.")
+    logger.debug(f"TF-IDF build finished: {len(texts)} jokes.")
 
 
 if __name__ == "__main__":

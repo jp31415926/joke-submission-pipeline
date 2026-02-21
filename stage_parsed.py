@@ -50,7 +50,7 @@ class ParsedProcessor(StageProcessor):
       Tuple of (success: bool, updated_headers: dict, updated_content: str, reject_reason: str)
     """
     joke_id = headers.get('Joke-ID', 'unknown')
-    logger.info(f"{joke_id} Processing file for duplicate detection")
+    logger.debug(f"{joke_id} Processing file for duplicate detection")
     
     # Create temporary file for search_tfidf.py
     temp_file = None
@@ -82,7 +82,7 @@ class ParsedProcessor(StageProcessor):
       # Parse the duplicate score
       try:
         score, funny_id = parse_tfidf_score(stdout)
-        logger.info(f"{joke_id} Duplicate score: {score}")
+        logger.debug(f"{joke_id} Duplicate score: {score}")
       except ValueError as e:
         error_msg = f"Failed to parse TF-IDF score: {e}"
         logger.error(f"{joke_id} {error_msg}")
@@ -95,12 +95,12 @@ class ParsedProcessor(StageProcessor):
       # Check against threshold
       threshold = config.DUPLICATE_THRESHOLD
       if score >= threshold:
-        reject_reason = f"Duplicate score {score} >= threshold {threshold}"
+        reject_reason = f"Duplicate score {score} >= threshold {threshold}"; 
         logger.info(f"{joke_id} {reject_reason}")
         return (False, headers, content, reject_reason)
       
       # Not a duplicate
-      logger.info(f"{joke_id} Passed duplicate check (score {score} < threshold {threshold})")
+      logger.debug(f"{joke_id} Passed duplicate check (score {score} < threshold {threshold})")
       return (True, headers, content, "")
       
     except Exception as e:

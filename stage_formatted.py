@@ -116,7 +116,7 @@ class FormattedProcessor(StageProcessor):
       Tuple of (success, updated_headers, updated_content, reject_reason)
     """
     joke_id = headers.get('Joke-ID', 'unknown')
-    self.logger.info(f"{joke_id} Processing categorization")
+    self.logger.debug(f"{joke_id} Processing categorization")
 
     # Construct prompts from config
     system_prompt = self.ollama_client.system_prompt
@@ -190,9 +190,7 @@ class FormattedProcessor(StageProcessor):
       headers['Category-Confidence'] = str(confidence)
 
       self.logger.info(
-        f"{joke_id} Categorization result: "
-        f"Categories={validated_categories}, Confidence={confidence}, "
-        f"Reasoning: {reason}"
+        f"{joke_id} Categorization: Categories={validated_categories}, Confidence={confidence}, Reason: {reason}"
       )
 
       # Check confidence threshold
@@ -208,7 +206,7 @@ class FormattedProcessor(StageProcessor):
         return (False, headers, content, reject_reason)
 
       # Success
-      self.logger.info(
+      self.logger.debug(
         f"{joke_id} Categorization complete"
       )
       return (True, headers, content, "")

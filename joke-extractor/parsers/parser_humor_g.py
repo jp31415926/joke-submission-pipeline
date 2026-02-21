@@ -42,7 +42,7 @@ def parse(email: EmailData) -> list[JokeData]:
     # Check subject for discard conditions
     subject_lower = email.subject_header.lower()
     if "toon" in subject_lower or "good ole maxine" in subject_lower or "attachment" in subject_lower:
-        logging.info("Subject contained 'good ole maxine' or 'attachment' ... disregarding")
+        logging.debug("Subject contained 'good ole maxine' or 'attachment' ... disregarding")
         return []
 
     # Prefer HTML format if available, otherwise use plain text
@@ -73,13 +73,13 @@ def parse(email: EmailData) -> list[JokeData]:
     
     # If we have joke lines, process them
     if not joke_lines:
-        logging.info("joke content is empty ... disregarding")
+        logging.debug("joke content is empty ... disregarding")
         return []
     
     # Check for forbidden content
     full_joke_text = '\n'.join(joke_lines)
     if '[cid:' in full_joke_text.lower() or 'http' in full_joke_text.lower():
-        logging.info("found '[cid:' or 'http' ... disregarding")
+        logging.debug("found '[cid:' or 'http' ... disregarding")
         return []
     
     # Format the joke text properly

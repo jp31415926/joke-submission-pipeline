@@ -42,7 +42,7 @@ def load_artifacts(artifacts_dir: Path) -> Tuple:
         with open(titles_path, "rb") as f:
             joke_titles = pickle.load(f)
             
-        logger.info("Successfully loaded TF-IDF artifacts")
+        logger.debug("Successfully loaded TF-IDF artifacts")
         return vectorizer, tfidf_matrix, joke_ids, joke_titles
         
     except Exception as e:
@@ -64,11 +64,8 @@ def search_joke(query_text: str, vectorizer, tfidf_matrix, joke_ids, joke_titles
          # Format results - make sure we handle types properly
         results = []
         for i in top_indices:
-            #logger.info(f"i = {i}")
             score = float(similarities[i])
-            #logger.info(f"score = {score}")
             joke_id = int(joke_ids[i])  # Properly convert to int
-            #logger.info(f"joke_id = {joke_id}")
             # The index i is the position in the similarity array, but we need to use joke_id as dict key
             # This fixes the KeyError where numpy.int64 indices don't match dictionary keys
             try:
@@ -80,7 +77,7 @@ def search_joke(query_text: str, vectorizer, tfidf_matrix, joke_ids, joke_titles
                 title = ""
             results.append((score, joke_id, title))
             
-        #logger.info(f"Found {len(results)} similar jokes")
+        logger.debug(f"Found {len(results)} similar jokes")
         return results
         
     except Exception as e:
@@ -112,7 +109,7 @@ def main():
         # Load artifacts from the directory supplied by the user (default: data)
         artifacts_dir = Path(args.artifacts_dir)
         
-        logger.info(f"Loading artifacts from {artifacts_dir}")
+        logger.debug(f"Loading artifacts from {artifacts_dir}")
         vectorizer, tfidf_matrix, joke_ids, joke_titles = load_artifacts(artifacts_dir)
         
         # Read joke file
@@ -128,7 +125,7 @@ def main():
             logger.error("Input joke file is empty")
             sys.exit(1)
             
-        logger.info(f"Searching for: {joke_text[:50]}")
+        logger.debug(f"Searching for: {joke_text[:50].replace('\n','\\n')}")
         
         # Perform search
         results = search_joke(joke_text, vectorizer, tfidf_matrix, joke_ids, joke_titles)

@@ -67,16 +67,16 @@ class StageProcessor(ABC):
         # Process priority pipeline first
         priority_input_dir = os.path.join(self.config.PIPELINE_PRIORITY, self.input_stage)
         if os.path.exists(priority_input_dir):
-            self.logger.info(f"Starting processing of priority pipeline files in {priority_input_dir}")
+            self.logger.debug(f"Starting processing of priority pipeline files in {priority_input_dir}")
             self._process_files_in_directory(priority_input_dir)
-            self.logger.info(f"Completed processing of priority pipeline files in {priority_input_dir}")
+            self.logger.debug(f"Completed processing of priority pipeline files in {priority_input_dir}")
             
         # Then process main pipeline
         main_input_dir = os.path.join(self.config.PIPELINE_MAIN, self.input_stage)
         if os.path.exists(main_input_dir):
-            self.logger.info(f"Starting processing of main pipeline files in {main_input_dir}")
+            self.logger.debug(f"Starting processing of main pipeline files in {main_input_dir}")
             self._process_files_in_directory(main_input_dir)
-            self.logger.info(f"Completed processing of main pipeline files in {main_input_dir}")
+            self.logger.debug(f"Completed processing of main pipeline files in {main_input_dir}")
     
     def _process_files_in_directory(self, input_dir: str):
         """
@@ -94,7 +94,7 @@ class StageProcessor(ABC):
             for filename in files:
                 # Check for ALL_STOP file before processing each file
                 if os.path.exists(self.config.ALL_STOP):
-                    self.logger.info(f"ALL_STOP file detected at {self.config.ALL_STOP}. Exiting gracefully.")
+                    self.logger.warning(f"ALL_STOP file detected at {self.config.ALL_STOP}. Exiting gracefully.")
                     return
 
                 if filename == '.DS_Store' or filename.startswith('.'):
@@ -119,7 +119,7 @@ class StageProcessor(ABC):
         except Exception as e:
             self.logger.error(f"Could not parse headers from {filepath}: {e}")
 
-        self.logger.info(f"{joke_id} Starting to process file {filepath}")
+        self.logger.debug(f"{joke_id} Starting to process file {filepath}")
 
         # Move file to tmp/ directory to prevent concurrent processing
         input_dir = os.path.dirname(filepath)
@@ -162,7 +162,7 @@ class StageProcessor(ABC):
 
                     if success:
                         self._move_to_output(filepath, updated_headers, updated_content)
-                        self.logger.info(f"{joke_id} Successfully processed file {filepath}")
+                        self.logger.debug(f"{joke_id} Successfully processed file {filepath}")
                         return
                     else:
                         # If not successful, check if we've exhausted retries
@@ -228,7 +228,7 @@ class StageProcessor(ABC):
             
         atomic_move(filepath, final_output_dir)
         
-        self.logger.info(f"{joke_id} Moved successful file from {filepath} to {final_output_dir}")
+        self.logger.debug(f"{joke_id} Moved successful file from {filepath} to {final_output_dir}")
     
     def _move_to_reject(self, filepath: str, headers: Dict[str, str], content: str, reason: str):
         """
@@ -264,7 +264,7 @@ class StageProcessor(ABC):
         # Log rejection to failure log file
         self._log_rejection(filepath, joke_id, reason)
 
-        self.logger.info(f"{joke_id} Moved rejected file from {filepath} to {final_reject_dir}. Reason: {reason}")
+        self.logger.debug(f"{joke_id} Moved rejected file from {filepath} to {final_reject_dir}. Reason: {reason}")
 
     def _log_rejection(self, filepath: str, joke_id: str, reason: str):
         """

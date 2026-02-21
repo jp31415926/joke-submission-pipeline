@@ -118,7 +118,7 @@ class CategorizedProcessor(StageProcessor):
       Tuple of (success, updated_headers, updated_content, reject_reason)
     """
     joke_id = headers.get('Joke-ID', 'unknown')
-    self.logger.info(
+    self.logger.debug(
       f"{joke_id} Processing title generation and validation"
     )
 
@@ -200,12 +200,12 @@ class CategorizedProcessor(StageProcessor):
         return (False, headers, content, error_msg)
 
     else:
-      self.logger.info(
+      self.logger.debug(
         f"{joke_id} Title already exists, skipping generation"
       )
 
     # Perform final validation
-    self.logger.info(f"{joke_id} Performing final validation")
+    self.logger.debug(f"{joke_id} Performing final validation")
     valid, error_message = self._validate_final(headers, content)
 
     if not valid:
@@ -214,7 +214,7 @@ class CategorizedProcessor(StageProcessor):
       return (False, headers, content, reject_reason)
 
     # Success - ready for review
-    self.logger.info(
+    self.logger.debug(
       f"{joke_id} Passed all validation, ready for review"
     )
     return (True, headers, content, "")

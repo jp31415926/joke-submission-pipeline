@@ -231,10 +231,10 @@ def process_one_email(email_file: str, output_success_dir: str, output_failure_d
     # Extract text and HTML versions
     text_content = extract_text_content(email_message)
     html_content = extract_html_content(email_message)
-    logging.info(f"Text: {len(text_content)} HTML: {len(html_content)}")
+    logging.debug(f"Text: {len(text_content)} HTML: {len(html_content)}")
 
     if text_content == html_content:
-        logging.info("Text and HTML are identical.")
+        logging.debug("Text and HTML are identical.")
 
     if text_content or html_content:
         email_data = EmailData(
@@ -245,7 +245,7 @@ def process_one_email(email_file: str, output_success_dir: str, output_failure_d
         )
 
         # Try to find a custom parser
-        logging.info(f"From: {email_data.from_header}")
+        logging.debug(f"From: {email_data.from_header}")
         jokes = []
         parser = get_parser(email_data)
         if parser:
@@ -301,7 +301,7 @@ def process_one_email(email_file: str, output_success_dir: str, output_failure_d
                     tmp_file.write("\n")  # separator
                     tmp_file.write(joke.text)
 
-                logging.info(f"Successfully extracted joke to {tmp_file.name}")
+                logging.debug(f"Successfully extracted joke to {tmp_file.name}")
             print(f"100 Successfully extracted {len(jokes)} joke(s)")
             return 100
         else:
@@ -339,7 +339,7 @@ def main():
         sys.exit(1)
 
     from parsers import _parser_registry
-    logging.info(f"Loaded {len(_parser_registry)} parsers")
+    logging.debug(f"Loaded {len(_parser_registry)} parsers")
 
     output_success_dir = sys.argv[1]
     output_failure_dir = sys.argv[2]
@@ -347,7 +347,7 @@ def main():
 
     any_error = False
     for email_file in email_files:
-        logging.info(f"Processing {email_file}")
+        logging.debug(f"Processing {email_file}")
         code = process_one_email(email_file, output_success_dir, output_failure_dir)
         if code >= 500:
             any_error = True

@@ -57,7 +57,7 @@ class DedupedProcessor(StageProcessor):
       Tuple of (success, updated_headers, updated_content, reject_reason)
     """
     joke_id = headers.get('Joke-ID', 'unknown')
-    self.logger.info(f"{joke_id} Processing cleanliness check")
+    self.logger.debug(f"{joke_id} Processing cleanliness check")
 
     # Construct prompts from config
     system_prompt = self.ollama_client.system_prompt
@@ -73,7 +73,7 @@ class DedupedProcessor(StageProcessor):
 
       # Parse JSON response
       try:
-        self.logger.debug(f"{joke_id} response: {response_text}")
+        self.logger.debug(f"{joke_id} LLM clean check response: {response_text.replace('\n', '\\n')}")
         response_dict = json.loads(response_text.strip())
       except json.JSONDecodeError as e:
         self.logger.error(
@@ -134,7 +134,7 @@ class DedupedProcessor(StageProcessor):
         return (False, headers, content, reject_reason)
 
       # Success
-      self.logger.info(
+      self.logger.debug(
         f"{joke_id} Passed cleanliness check"
       )
       return (True, headers, content, "")

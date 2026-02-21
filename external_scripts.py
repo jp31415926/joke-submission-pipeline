@@ -50,7 +50,7 @@ def run_external_script(
   
   # Build command
   command = [script_path] + args
-  logger.info(f"Executing external script: {' '.join(command)}")
+  logger.debug(f"Executing external script: {' '.join(command)}")
   
   try:
     # Execute script
@@ -63,7 +63,7 @@ def run_external_script(
     )
     
     # Log result
-    logger.info(
+    logger.debug(
       f"Script completed with return code {result.returncode}: {script_path}"
     )
     if result.stderr:

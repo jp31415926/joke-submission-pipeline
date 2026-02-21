@@ -138,7 +138,7 @@ def parse(email: EmailData) -> list[JokeData]:
             if final_text:
                 lower = final_text.lower()
                 if 'http' in lower or 'mailto' in lower or 'copyright' in lower or '©' in lower:
-                    logging.info("Found 'http', 'mailto' or 'copyright': discarding joke")
+                    logging.debug("Found 'http', 'mailto' or 'copyright': discarding joke")
                 else:
                     jokes.append(JokeData(
                         text=final_text,

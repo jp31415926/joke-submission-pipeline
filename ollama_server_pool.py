@@ -207,7 +207,7 @@ class OllamaServerPool:
     # Create lock directory
     os.makedirs(lock_dir, exist_ok=True)
 
-    logger.info(f"Initialized Ollama server pool with {len(self.servers)} servers")
+    logger.debug(f"Initialized Ollama server pool with {len(self.servers)} servers")
 
   def _get_server_hash(self, server_url: str) -> str:
     """Get a short hash for a server URL."""
@@ -279,7 +279,7 @@ class OllamaServerPool:
       # Check for stale lock and clean up
       if os.path.exists(lock_file_path):
         if ServerLock.is_stale(lock_file_path):
-          logger.info(f"Cleaning up stale lock: {lock_file_path}")
+          logger.debug(f"Cleaning up stale lock: {lock_file_path}")
           try:
             os.remove(lock_file_path)
           except OSError:
@@ -340,7 +340,7 @@ class OllamaServerPool:
       for server in servers_to_try:
         lock = self._try_acquire_server(server, stage_name)
         if lock:
-          logger.info(
+          logger.debug(
             f"Acquired server {server.url} for {stage_name} "
             f"(attempt {attempt + 1}/{self.retry_max_attempts})"
           )
@@ -411,7 +411,7 @@ class OllamaServerPool:
               if metadata.get('pid') == current_pid:
                 # This is our lock (not currently held), remove it
                 os.remove(lock_path)
-                logger.info(f"Cleaned up lock file: {lock_file}")
+                logger.debug(f"Cleaned up lock file: {lock_file}")
 
             except (IOError, OSError):
               # File is exclusively locked, skip

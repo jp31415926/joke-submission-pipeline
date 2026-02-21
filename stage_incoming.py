@@ -79,7 +79,7 @@ class IncomingProcessor(StageProcessor):
         
         try:
             # Call joke-extract.py
-            self.logger.info(f"{email_filename} Calling joke-extract.py")
+            self.logger.debug(f"{email_filename} Calling joke-extract.py")
             return_code, stdout, stderr = run_external_script(
                 config.JOKE_EXTRACTOR,
                 [filepath, success_dir, fail_dir],
@@ -106,7 +106,7 @@ class IncomingProcessor(StageProcessor):
                 return (False, {}, "", "No jokes extracted from email")
             
             # Process each extracted joke
-            self.logger.info(
+            self.logger.debug(
                 f"{email_filename} Found {len(extracted_files)} joke(s) extracted"
             )
             
@@ -166,7 +166,7 @@ class IncomingProcessor(StageProcessor):
         from file_utils import write_joke_file
         write_joke_file(output_filepath, updated_headers, content)
         
-        self.logger.info(
+        self.logger.debug(
             f"{joke_id} Created joke file from {email_filename}"
         )
     
@@ -181,7 +181,7 @@ class IncomingProcessor(StageProcessor):
         # Delete the source email file
         try:
             os.remove(filepath)
-            self.logger.info(f"{os.path.basename(filepath)} Deleted source email file")
+            self.logger.debug(f"{os.path.basename(filepath)} Deleted source email file")
         except Exception as e:
             self.logger.error(f"{os.path.basename(filepath)} Failed to delete source email file: {e}")
     
@@ -208,7 +208,7 @@ class IncomingProcessor(StageProcessor):
         reject_path = os.path.join(reject_dir, email_filename)
         try:
             shutil.move(filepath, reject_path)
-            self.logger.info(f"{email_filename} Moved to rejected. Reason: {reason}")
+            self.logger.debug(f"{email_filename} Moved to rejected. Reason: {reason}")
         except Exception as e:
             self.logger.error(f"{email_filename} Failed to move to rejected: {e}")
 

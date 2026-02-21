@@ -237,11 +237,9 @@ def run_pipeline(pipeline_type: str = "both", stage_only: Optional[str] = None):
   """
   logger = get_logger("Pipeline")
 
-  #logger.info("=" * 70)
-  logger.info(f"Starting joke pipeline (type: {pipeline_type})")
+  logger.debug(f"Starting joke pipeline (type: {pipeline_type})")
   if stage_only:
-    logger.info(f"Running single stage only: {stage_only}")
-  #logger.info("=" * 70)
+    logger.debug(f"Running single stage only: {stage_only}")
 
   # Define all stages in order
   all_stages = {
@@ -266,18 +264,14 @@ def run_pipeline(pipeline_type: str = "both", stage_only: Optional[str] = None):
   # Run each stage in order
   try:
     for stage_name, processor_class in stages_to_run.items():
-      #logger.info("-" * 70)
-      logger.info(f"Running stage: {stage_name}")
-      #logger.info("-" * 70)
+      logger.debug(f"Running stage: {stage_name}")
 
       processor = processor_class()
       processor.run()
 
-      logger.info(f"Completed stage: {stage_name}")
+      logger.debug(f"Completed stage: {stage_name}")
 
-    #logger.info("=" * 70)
-    logger.info("Pipeline execution completed successfully")
-    #logger.info("=" * 70)
+    logger.debug("Pipeline execution completed successfully")
     return True
 
   except Exception as e:
@@ -296,7 +290,7 @@ def signal_handler(signum, frame):
   if server_pool:
     server_pool.cleanup_all_locks()
 
-  logger.info("Cleanup complete, exiting")
+  logger.debug("Cleanup complete, exiting")
   sys.exit(1)
 
 
@@ -407,16 +401,15 @@ Stages (in order):
   logger.debug(f"Joke Pipeline starting with arguments: {vars(args)}")
 
   # Check for and remove ALL_STOP file if it exists
-  if os.path.exists(config.ALL_STOP):
-    logger.info(f"Removing ALL_STOP file at {config.ALL_STOP}")
+  if args.stage == None and os.path.exists(config.ALL_STOP):
     try:
       os.remove(config.ALL_STOP)
-      logger.info("ALL_STOP file removed successfully")
+      logger.debug(f"{config.ALL_STOP} file removed successfully")
     except Exception as e:
       logger.warning(f"Failed to remove ALL_STOP file: {e}")
 
   # Initialize Ollama server pool
-  logger.info("Initializing Ollama server pool")
+  logger.debug("Initializing Ollama server pool")
   initialize_server_pool(
     servers=config.OLLAMA_SERVERS,
     lock_dir=config.OLLAMA_LOCK_DIR,
