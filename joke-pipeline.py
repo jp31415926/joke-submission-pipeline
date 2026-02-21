@@ -275,9 +275,7 @@ def run_pipeline(pipeline_type: str = "both", stage_only: Optional[str] = None):
     return True
 
   except Exception as e:
-    #logger.error("=" * 70)
     logger.error(f"Pipeline execution failed: {e}")
-    #logger.error("=" * 70)
     return False
 
 
@@ -401,7 +399,8 @@ Stages (in order):
   logger.debug(f"Joke Pipeline starting with arguments: {vars(args)}")
 
   # Check for and remove ALL_STOP file if it exists
-  if args.stage == None and os.path.exists(config.ALL_STOP):
+  if os.path.exists(config.ALL_STOP):
+    logger.info(f"Removing ALL_STOP file at {config.ALL_STOP}")
     try:
       os.remove(config.ALL_STOP)
       logger.debug(f"{config.ALL_STOP} file removed successfully")
@@ -435,7 +434,7 @@ Stages (in order):
 
   # Exit with appropriate code
   if success:
-    #logger.info("Pipeline completed successfully")
+    logger.debug("Pipeline completed successfully")
     sys.exit(0)
   else:
     logger.error("Pipeline failed")
