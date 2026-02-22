@@ -69,7 +69,7 @@ TITLE_MIN_CONFIDENCE = 50  # 0-100
 # qwen3:8b https://huggingface.co/Qwen/Qwen3-8B
 OLLAMA_CLEANLINESS_CHECK = {
   'OLLAMA_MODEL': 'mistral-nemo:12b', # qwen3:8b, gemma3:4b gemma3:12b
-  'OLLAMA_SYSTEM_PROMPT': 'You are a strict content safety reviewer.',
+  'OLLAMA_SYSTEM_PROMPT': 'You are an English-speaking strict content safety reviewer.',
   'OLLAMA_USER_PROMPT': '''Your task is to evaluate the following joke for cleanliness and appropriateness.
 
 Assess the joke for:
@@ -112,7 +112,7 @@ Joke:
 # Ollama LLM Configuration - Formatting
 OLLAMA_FORMATTING = {
   'OLLAMA_MODEL': 'qwen2.5:7b', # qwen3:8b, gemma3:4b, gemma3:12b, llama3.2:3b
-  'OLLAMA_SYSTEM_PROMPT': 'You are a literal text correction engine.',
+  'OLLAMA_SYSTEM_PROMPT': 'You are an English-speaking literal text correction engine.',
   'OLLAMA_USER_PROMPT': '''Your only task is to fix:
 
 * Spelling
@@ -165,7 +165,7 @@ Text to correct:
 # Ollama LLM Configuration - Categorization
 OLLAMA_CATEGORIZATION = {
   'OLLAMA_MODEL': 'mistral-nemo:12b', # qwen3:8b, gemma3:4b
-  'OLLAMA_SYSTEM_PROMPT': 'You are a strict multi-label classifier.',
+  'OLLAMA_SYSTEM_PROMPT': 'You are an English-speaking strict multi-label classifier.',
   'OLLAMA_USER_PROMPT': '''TASK:
 Select one or more categories from the <categories> list that best match the joke.
 
@@ -214,7 +214,7 @@ Joke:
 # Ollama LLM Configuration - Title Generation
 OLLAMA_TITLE_GENERATION = {
   'OLLAMA_MODEL': 'qwen2.5:14b', # qwen3:8b, gemma3:4b
-  'OLLAMA_SYSTEM_PROMPT': 'You are an expert comedy headline writer specializing in dry, clever, and pun-based humor',
+  'OLLAMA_SYSTEM_PROMPT': 'You are an English-speaking expert comedy headline writer specializing in dry, clever, and pun-based humor',
   'OLLAMA_USER_PROMPT': '''Task: Create a punchy, thematic, fun title for the provided joke.
 
 Constraints:
