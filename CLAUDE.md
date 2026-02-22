@@ -23,11 +23,11 @@ Commit message guidelines:
 
 Example workflow:
 ```bash
-git add src/stage_parsed.py tests/test_stage_parsed.py
+git add src/stage_dedup.py tests/test_stage_dedup.py
 git commit -m "$(cat <<'EOF'
 Fix duplicate detection to handle edge cases
 
-Updated stage_parsed.py to properly handle empty TF-IDF results
+Updated stage_dedup.py to properly handle empty TF-IDF results
 and added corresponding test cases.
 EOF
 )"
@@ -69,7 +69,7 @@ python3 -m pytest --cov=src
 ### Linting
 ```bash
 # Lint a file with flake8
-flake8 --append-config=flake8.ini stage_incoming.py
+flake8 --append-config=flake8.ini stage_parse.py
 
 # Lint src/ folder
 flake8 --append-config=flake8.ini src/
@@ -78,10 +78,24 @@ flake8 --append-config=flake8.ini src/
 ### Running Stages
 Each stage processor can be run independently:
 ```bash
-python3 stage_incoming.py
-python3 stage_parsed.py
-# etc.
+python3 stage_parse.py
+python3 stage_dedup.py
+python3 stage_clean_check.py
+python3 stage_format.py
+python3 stage_categorize.py
+python3 stage_title.py
 ```
+
+### Retrying Rejected Jokes
+To move rejected jokes back for reprocessing:
+```bash
+# Retry rejected jokes: --retry <pipeline> <stage> <id1> [id2 ...]
+joke-pipeline.py --retry main dedup abc123 def456
+joke-pipeline.py --retry priority clean_check abc123
+```
+
+Valid pipelines: `main`, `priority`
+Valid stages: `dedup`, `clean_check`, `format`, `categorize`, `title`
 
 ### External Dependencies
 - **Ollama**: Required for LLM operations. Must be running locally (default port 11434)
@@ -111,23 +125,30 @@ Joke-ID: <uuid>
 Title: <title>
 Submitter: <email>
 Pipeline-Stage: <stage_name>
-[other headers...]
+[stage-specific headers...]
 
 <joke content>
 ```
 
 Headers and content are separated by a blank line. The `file_utils.py` module handles parsing and writing this format.
 
+Stage-specific headers added by each stage:
+- **parse**: `Source-Email-File`
+- **dedup**: `Duplicate-Score`, `Duplicate-Threshold`
+- **clean_check**: `Cleanliness-Status`, `Cleanliness-Confidence`, `Clean-Check-Reason`, `Clean-Check-LLM-Model-Used`
+- **format**: `Format-Status`, `Format-Confidence`, `Format-Reason`, `Format-LLM-Model-Used`
+- **categorize**: `Categories`, `Categorize-Reason`, `Categorize-LLM-Model-Used`
+- **title**: `Title-Source` (LLM or Submitter), `Title-Reason` (when LLM-generated), `Title-LLM-Model-Used` (when LLM-generated)
+
 ### Pipeline Stages
-Jokes flow through 8 stages (in `config.py`):
-1. **01_incoming** - Raw email files
-2. **02_parsed** - Extracted jokes from emails via joke-extract.py
-3. **03_deduped** - Duplicate checking via TF-IDF similarity
-4. **04_clean_checked** - Cleanliness verification via LLM
-5. **05_formatted** - Grammar/punctuation formatting via LLM
-6. **06_categorized** - Category assignment via LLM
-7. **07_titled** - Title assignment (if needed)
-8. **08_ready_for_review** - Final manual review
+Jokes flow through 7 stages (in `config.py`):
+1. **01_parse** - Extract jokes from email files via joke-extract.py
+2. **02_dedup** - Duplicate checking via TF-IDF similarity
+3. **03_clean_check** - Cleanliness verification via LLM
+4. **04_format** - Grammar/punctuation formatting via LLM
+5. **05_categorize** - Category assignment via LLM
+6. **06_title** - Title assignment (if needed)
+7. **08_ready_for_review** - Final manual review
 
 Rejected jokes go to `50_rejected_*` directories (defined in `config.REJECTS`).
 
@@ -215,12 +236,12 @@ The `logging_utils.py` module provides centralized logging:
 ## Key Implementation Details
 
 ### Stage Implementations
-- **stage_incoming.py**: Unique stage that processes EMAIL files (not joke files), calls joke-extract.py, may produce 0 or more jokes per email
-- **stage_parsed.py**: Implements deduplication using TF-IDF via search_tfidf.py with SEARCH_TFIDF_OPTIONS
-- **stage_deduped.py**: Cleanliness check using OLLAMA_CLEANLINESS_CHECK config, expects JSON response
-- **stage_clean_checked.py**: Formatting using OLLAMA_FORMATTING config, expects JSON response with multi-line support
-- **stage_formatted.py**: Categorization using OLLAMA_CATEGORIZATION config, expects JSON response
-- **stage_categorized.py**: Title generation (if needed) using OLLAMA_TITLE_GENERATION config, expects JSON response
+- **stage_parse.py**: Unique stage that processes EMAIL files (not joke files), calls joke-extract.py, may produce 0 or more jokes per email
+- **stage_dedup.py**: Implements deduplication using TF-IDF via search_tfidf.py with SEARCH_TFIDF_OPTIONS
+- **stage_clean_check.py**: Cleanliness check using OLLAMA_CLEANLINESS_CHECK config, expects JSON response; adds `Clean-Check-Reason` and `Clean-Check-LLM-Model-Used` headers
+- **stage_format.py**: Formatting using OLLAMA_FORMATTING config, expects header+content format response; adds `Format-Reason` and `Format-LLM-Model-Used` headers
+- **stage_categorize.py**: Categorization using OLLAMA_CATEGORIZATION config, expects JSON response; adds `Categorize-Reason` and `Categorize-LLM-Model-Used` headers
+- **stage_title.py**: Title generation (if needed) using OLLAMA_TITLE_GENERATION config, expects JSON response; adds `Title-Source` (LLM or Submitter), `Title-Reason`, and `Title-LLM-Model-Used` headers
 - All LLM stages use JSON response format to properly handle multi-line jokes with blank lines
 - Other stages follow similar patterns using the StageProcessor base class
 
