@@ -41,6 +41,7 @@ SEARCH_TFIDF_OPTIONS = ['-1', '-a', SEARCH_TFIDF_DATA_DIR]
 # Timeouts (in seconds)
 EXTERNAL_SCRIPT_TIMEOUT = 120  # Timeout for external scripts (joke-extractor, TF-IDF)
 OLLAMA_TIMEOUT = 3600  # Timeout for Ollama LLM API calls
+OLLAMA_COMMON_KEEP_ALIVE=0 # Ollama keep alive timeout: 0 or duration like "1m"
 
 # Ollama Server Pool Configuration
 # List of Ollama servers with their max concurrent requests
@@ -61,12 +62,17 @@ OLLAMA_LOCK_RETRY_MAX_ATTEMPTS = 720 # Max retry attempts (10s * 720 = 7200s = 2
 OLLAMA_LOCK_RETRY_JITTER = 5.0  # Max random jitter to add to retry wait (seconds)
 
 # Thresholds
-DUPLICATE_THRESHOLD = 60  # 0-100 score
+DUPLICATE_THRESHOLD = 40  # 0-100 score
 CLEANLINESS_MIN_CONFIDENCE = 50  # 0-100
 TITLE_MIN_CONFIDENCE = 50  # 0-100
 
+# LLM Notes (DO NOT DELETE)
+# mistral-nemo:12b  7.1GB size - 128K context
+# qwen2.5:7b        4.7GB size - 32K context
+# qwen2.5:14b       9.0GB size - 32K context
+# 
+
 # Ollama LLM Configuration - Cleanliness Check
-# qwen3:8b https://huggingface.co/Qwen/Qwen3-8B
 OLLAMA_CLEANLINESS_CHECK = {
   'OLLAMA_MODEL': 'mistral-nemo:12b', # qwen3:8b, gemma3:4b gemma3:12b
   'OLLAMA_SYSTEM_PROMPT': 'You are an English-speaking strict content safety reviewer.',
@@ -97,10 +103,10 @@ Do NOT include any text outside the JSON.
 Joke:
 {content}
 ''',
-  'OLLAMA_KEEP_ALIVE': 0,#1m
+  'OLLAMA_KEEP_ALIVE': OLLAMA_COMMON_KEEP_ALIVE,
   'OLLAMA_OPTIONS': {
     'temperature': 0.2,
-    'num_ctx': 65536,
+    'num_ctx': 131072, # mistral-nemo:12b - 128K context
     'repeat_penalty': 1.05,
     'top_k': 20,
     'top_p': 0.9,
@@ -149,10 +155,10 @@ Changes: <brief description of what changed, or None>
 Text to correct:
 {content}
 ''',
-  'OLLAMA_KEEP_ALIVE': 0,#1m
+  'OLLAMA_KEEP_ALIVE': OLLAMA_COMMON_KEEP_ALIVE,
   'OLLAMA_OPTIONS': {
     'temperature': 0.0,
-    'num_ctx': 65536,
+    'num_ctx': 32768, # qwen2.5:7b - 32K context
     'repeat_penalty': 1.0,
     'top_k': 1,
     'top_p': 1.0,
@@ -198,10 +204,10 @@ If you fail any rule, return:
 Joke:
 {content}
 ''',
-  'OLLAMA_KEEP_ALIVE': 0,#1m
+  'OLLAMA_KEEP_ALIVE': OLLAMA_COMMON_KEEP_ALIVE,
   'OLLAMA_OPTIONS': {
     'temperature': 0.1,
-    'num_ctx': 65536,
+    'num_ctx': 131072, # mistral-nemo:12b - 128K context
     'repeat_penalty': 1.1,
     'top_k': 20,
     'top_p': 0.9,
@@ -229,10 +235,10 @@ Return ONLY valid JSON in this format:
 Joke:
 {content}
 ''',
-  'OLLAMA_KEEP_ALIVE': 0,#1m
+  'OLLAMA_KEEP_ALIVE': OLLAMA_COMMON_KEEP_ALIVE,
   'OLLAMA_OPTIONS': {
     'temperature': 0.7,
-    'num_ctx': 65536,
+    'num_ctx': 32768, # qwen2.5:14b - 32K context
     'repeat_penalty': 1.05,
     'top_k': 50,
     'top_p': 0.9,
