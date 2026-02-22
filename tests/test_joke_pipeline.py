@@ -1096,3 +1096,191 @@ def test_rejection_log_newlines_replaced(setup_full_pipeline):
       joke_id, reason = parts
       # Reason should not contain literal newlines
       assert '\n' not in reason, "Reason should not contain newlines"
+
+
+# ---------------------------------------------------------------------------
+# Tests for --retry / retry_jokes
+# ---------------------------------------------------------------------------
+
+def _make_rejected_joke(reject_dir: str, joke_id: str, stage: str, reason: str):
+  """Helper: write a joke file into a reject directory."""
+  os.makedirs(reject_dir, exist_ok=True)
+  headers = {
+    'Joke-ID': joke_id,
+    'Title': 'Test Joke',
+    'Submitter': 'test@example.com',
+    'Source-Email-File': 'test.eml',
+    'Pipeline-Stage': stage,
+    'Rejection-Reason': reason,
+    'Categories': 'Pun',
+  }
+  write_joke_file(os.path.join(reject_dir, f"{joke_id}.txt"), headers, 'Content.')
+
+
+def test_retry_moves_file_to_retry_stage(setup_full_pipeline):
+  """Test that retry_jokes moves a file from reject dir to the retry stage."""
+  env = setup_full_pipeline
+  joke_id = '11111111-1111-1111-1111-111111111111'
+
+  reject_dir = os.path.join(env['pipeline_main'], config.REJECTS['duplicate'])
+  _make_rejected_joke(
+    reject_dir, joke_id, config.REJECTS['duplicate'], 'Duplicate detected'
+  )
+
+  pipeline_module = import_joke_pipeline()
+  result = pipeline_module.retry_jokes('main', 'duplicate', [joke_id])
+
+  assert result is True
+  assert not os.path.exists(os.path.join(reject_dir, f"{joke_id}.txt"))
+  retry_dir = os.path.join(env['pipeline_main'], config.STAGES['parsed'])
+  assert os.path.exists(os.path.join(retry_dir, f"{joke_id}.txt"))
+
+
+def test_retry_clears_rejection_reason(setup_full_pipeline):
+  """Test that retry_jokes removes the Rejection-Reason header."""
+  env = setup_full_pipeline
+  joke_id = '22222222-2222-2222-2222-222222222222'
+
+  reject_dir = os.path.join(env['pipeline_main'], config.REJECTS['category'])
+  _make_rejected_joke(
+    reject_dir, joke_id, config.REJECTS['category'], 'No valid categories'
+  )
+
+  pipeline_module = import_joke_pipeline()
+  pipeline_module.retry_jokes('main', 'category', [joke_id])
+
+  retry_path = os.path.join(
+    env['pipeline_main'], config.STAGES['formatted'], f"{joke_id}.txt"
+  )
+  headers, _ = parse_joke_file(retry_path)
+  assert 'Rejection-Reason' not in headers
+  assert headers['Pipeline-Stage'] == config.STAGES['formatted']
+
+
+def test_retry_updates_pipeline_stage_header(setup_full_pipeline):
+  """Test that Pipeline-Stage header is updated to the retry stage."""
+  env = setup_full_pipeline
+  joke_id = '33333333-3333-3333-3333-333333333333'
+
+  reject_dir = os.path.join(env['pipeline_main'], config.REJECTS['cleanliness'])
+  _make_rejected_joke(
+    reject_dir, joke_id, config.REJECTS['cleanliness'], 'Failed cleanliness'
+  )
+
+  pipeline_module = import_joke_pipeline()
+  pipeline_module.retry_jokes('main', 'cleanliness', [joke_id])
+
+  retry_path = os.path.join(
+    env['pipeline_main'], config.STAGES['deduped'], f"{joke_id}.txt"
+  )
+  headers, _ = parse_joke_file(retry_path)
+  assert headers['Pipeline-Stage'] == config.STAGES['deduped']
+
+
+def test_retry_multiple_ids(setup_full_pipeline):
+  """Test that retry_jokes handles multiple IDs at once."""
+  env = setup_full_pipeline
+  ids = [
+    'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+    'cccccccc-cccc-cccc-cccc-cccccccccccc',
+  ]
+
+  reject_dir = os.path.join(env['pipeline_main'], config.REJECTS['format'])
+  for joke_id in ids:
+    _make_rejected_joke(
+      reject_dir, joke_id, config.REJECTS['format'], 'Bad format'
+    )
+
+  pipeline_module = import_joke_pipeline()
+  result = pipeline_module.retry_jokes('main', 'format', ids)
+
+  assert result is True
+  retry_dir = os.path.join(env['pipeline_main'], config.STAGES['clean_checked'])
+  for joke_id in ids:
+    assert os.path.exists(os.path.join(retry_dir, f"{joke_id}.txt"))
+
+
+def test_retry_missing_id_returns_false(setup_full_pipeline):
+  """Test that retry_jokes returns False when a joke ID is not found."""
+  pipeline_module = import_joke_pipeline()
+  result = pipeline_module.retry_jokes(
+    'main', 'duplicate', ['deadbeef-dead-dead-dead-deaddeadbeef']
+  )
+  assert result is False
+
+
+def test_retry_partial_found(setup_full_pipeline):
+  """Test retry with one valid and one missing ID: moves valid, returns False."""
+  env = setup_full_pipeline
+  good_id = 'dddddddd-dddd-dddd-dddd-dddddddddddd'
+  bad_id = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'
+
+  reject_dir = os.path.join(env['pipeline_main'], config.REJECTS['titled'])
+  _make_rejected_joke(
+    reject_dir, good_id, config.REJECTS['titled'], 'Title failed'
+  )
+
+  pipeline_module = import_joke_pipeline()
+  result = pipeline_module.retry_jokes('main', 'titled', [good_id, bad_id])
+
+  assert result is False  # bad_id not found
+  retry_dir = os.path.join(env['pipeline_main'], config.STAGES['categorized'])
+  assert os.path.exists(os.path.join(retry_dir, f"{good_id}.txt"))
+
+
+def test_retry_priority_pipeline(setup_full_pipeline):
+  """Test retry works for the priority pipeline."""
+  env = setup_full_pipeline
+  joke_id = 'ffffffff-ffff-ffff-ffff-ffffffffffff'
+
+  reject_dir = os.path.join(env['pipeline_priority'], config.REJECTS['duplicate'])
+  _make_rejected_joke(
+    reject_dir, joke_id, config.REJECTS['duplicate'], 'Duplicate'
+  )
+
+  pipeline_module = import_joke_pipeline()
+  result = pipeline_module.retry_jokes('priority', 'duplicate', [joke_id])
+
+  assert result is True
+  retry_dir = os.path.join(env['pipeline_priority'], config.STAGES['parsed'])
+  assert os.path.exists(os.path.join(retry_dir, f"{joke_id}.txt"))
+
+
+def test_retry_cli_missing_args():
+  """Test that --retry without required args exits with error."""
+  result = subprocess.run(
+    ['python3', 'joke-pipeline.py', '--retry', '--retry-pipeline', 'main'],
+    capture_output=True, text=True,
+    cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+  )
+  assert result.returncode != 0
+  assert '--retry-stage' in result.stderr or 'error' in result.stderr.lower()
+
+
+def test_retry_all_stage_mappings(setup_full_pipeline):
+  """Test that all reject stage -> retry stage mappings work correctly."""
+  env = setup_full_pipeline
+  pipeline_module = import_joke_pipeline()
+
+  stage_map = {
+    'duplicate': config.STAGES['parsed'],
+    'cleanliness': config.STAGES['deduped'],
+    'format': config.STAGES['clean_checked'],
+    'category': config.STAGES['formatted'],
+    'titled': config.STAGES['categorized'],
+  }
+
+  for i, (reject_stage, retry_stage) in enumerate(stage_map.items()):
+    joke_id = f'1234567{i}-0000-0000-0000-000000000000'
+    reject_dir = os.path.join(env['pipeline_main'], config.REJECTS[reject_stage])
+    _make_rejected_joke(
+      reject_dir, joke_id, config.REJECTS[reject_stage], 'Test'
+    )
+
+    pipeline_module.retry_jokes('main', reject_stage, [joke_id])
+
+    retry_path = os.path.join(env['pipeline_main'], retry_stage, f"{joke_id}.txt")
+    assert os.path.exists(retry_path), (
+      f"Stage '{reject_stage}' should map to '{retry_stage}'"
+    )

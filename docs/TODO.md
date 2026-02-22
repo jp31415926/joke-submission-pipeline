@@ -22,5 +22,5 @@ LDD stands for Left for Developer/Designer to Decide. In other words, I don't ca
     3. check if the ALLOWED_CAT is a substring of LLM_CAT; if so, replace the LLM_CAT with the identified ALLOWED_CAT
     4. discard LLM_CAT as before
  15. [x] Remove the confidence return value for the category stage. I've already commented out some code in `stage_formatted.py` marked with "### REMOVE CONFIDENCE START" and "### REMOVE CONFIDENCE END". Also `config.py:OLLAMA_CLEANLINESS_CHECK` has been updated. All the other places still need to be updated. Update docs and tests.
- 16. [ ] I need a utility script (or add feature to `joke-pipeline.py`) to move one or more jokes from a reject stage to the appropriate non-reject stage so that it will be retried. I need to specify the pipeline (main or priority), the stage, and one or more joke-ids.
+ 16. [x] I need a utility script (or add feature to `joke-pipeline.py`) to move one or more jokes from a reject stage to the appropriate non-reject stage so that it will be retried. I need to specify the pipeline (main or priority), the stage, and one or more joke-ids.
  17. [ ] PLACEHOLDER. Update docs and tests.

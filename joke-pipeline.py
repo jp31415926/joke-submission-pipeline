@@ -11,10 +11,11 @@ import signal
 import argparse
 import os
 import time
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List
 
 import config
 from logging_utils import setup_logging, get_logger
+from file_utils import parse_joke_file, atomic_write
 from ollama_server_pool import initialize_server_pool, get_server_pool
 from stage_incoming import IncomingProcessor
 from stage_parsed import ParsedProcessor
@@ -279,6 +280,82 @@ def run_pipeline(pipeline_type: str = "both", stage_only: Optional[str] = None):
     return False
 
 
+# Maps reject stage key -> stage the joke should re-enter for reprocessing
+RETRY_STAGE_MAP = {
+  'duplicate': config.STAGES['parsed'],
+  'cleanliness': config.STAGES['deduped'],
+  'format': config.STAGES['clean_checked'],
+  'category': config.STAGES['formatted'],
+  'titled': config.STAGES['categorized'],
+}
+
+
+def retry_jokes(
+  pipeline: str,
+  stage: str,
+  joke_ids: List[str]
+) -> bool:
+  """
+  Move rejected jokes back to the appropriate stage for reprocessing.
+
+  Finds each joke by ID in the reject directory, clears the
+  Rejection-Reason header, updates Pipeline-Stage, and moves the file
+  to the retry stage directory.
+
+  Args:
+    pipeline: 'main' or 'priority'
+    stage: Reject stage key (e.g. 'duplicate', 'cleanliness')
+    joke_ids: List of joke ID strings to retry
+
+  Returns:
+    True if all IDs were found and moved; False if any were not found.
+  """
+  logger = get_logger("retry")
+
+  pipeline_dir = (
+    config.PIPELINE_MAIN if pipeline == 'main' else config.PIPELINE_PRIORITY
+  )
+  reject_dir = os.path.join(pipeline_dir, config.REJECTS[stage])
+  retry_stage = RETRY_STAGE_MAP[stage]
+  retry_dir = os.path.join(pipeline_dir, retry_stage)
+
+  os.makedirs(retry_dir, exist_ok=True)
+  os.makedirs(os.path.join(retry_dir, 'tmp'), exist_ok=True)
+
+  all_found = True
+  for joke_id in joke_ids:
+    source_path = os.path.join(reject_dir, f"{joke_id}.txt")
+    if not os.path.exists(source_path):
+      logger.error(f"{joke_id} Not found in {reject_dir}")
+      print(f"ERROR: {joke_id} not found in {reject_dir}", file=sys.stderr)
+      all_found = False
+      continue
+
+    try:
+      headers, content = parse_joke_file(source_path)
+
+      # Clear rejection metadata and set new stage
+      headers.pop('Rejection-Reason', None)
+      headers['Pipeline-Stage'] = retry_stage
+
+      # Write to retry dir atomically, then remove source
+      dest_path = os.path.join(retry_dir, f"{joke_id}.txt")
+      atomic_write(dest_path, headers, content)
+      os.remove(source_path)
+
+      logger.info(
+        f"{joke_id} Moved from {config.REJECTS[stage]} to {retry_stage}"
+      )
+      print(f"OK: {joke_id} -> {retry_stage}")
+
+    except Exception as e:
+      logger.error(f"{joke_id} Failed to retry: {e}")
+      print(f"ERROR: {joke_id} failed: {e}", file=sys.stderr)
+      all_found = False
+
+  return all_found
+
+
 def signal_handler(signum, frame):
   """Handle signals by cleaning up locks."""
   logger = get_logger("SignalHandler")
@@ -320,6 +397,9 @@ Examples:
   # Run with logging to stdout
   %(prog)s --log-to-stdout
 
+  # Retry rejected jokes
+  %(prog)s --retry --retry-pipeline main --retry-stage duplicate --ids <id1> <id2>
+
 Stages (in order):
   incoming      - Extract jokes from emails
   parsed        - Check for duplicates using TF-IDF
@@ -327,6 +407,13 @@ Stages (in order):
   clean_checked - Format jokes using LLM
   formatted     - Categorize jokes using LLM
   categorized   - Generate titles and final validation
+
+Retry stages (reject stage -> re-enters at):
+  duplicate     -> parsed (02_parsed)
+  cleanliness   -> deduped (03_deduped)
+  format        -> clean_checked (04_clean_checked)
+  category      -> formatted (05_formatted)
+  titled        -> categorized (06_categorized)
     """
   )
 
@@ -375,12 +462,57 @@ Stages (in order):
     help='Show pipeline status and exit (file counts, oldest files, etc.)'
   )
 
+  retry_group = parser.add_argument_group(
+    'retry',
+    'Move rejected jokes back to a stage for reprocessing'
+  )
+  retry_group.add_argument(
+    '--retry',
+    action='store_true',
+    help='Retry rejected jokes (requires --retry-pipeline, --retry-stage, --ids)'
+  )
+  retry_group.add_argument(
+    '--retry-pipeline',
+    choices=['main', 'priority'],
+    help='Pipeline containing the rejected jokes'
+  )
+  retry_group.add_argument(
+    '--retry-stage',
+    choices=list(RETRY_STAGE_MAP.keys()),
+    metavar='STAGE',
+    help=(
+      'Reject stage to retry from: '
+      + ', '.join(RETRY_STAGE_MAP.keys())
+    )
+  )
+  retry_group.add_argument(
+    '--ids',
+    nargs='+',
+    metavar='JOKE_ID',
+    help='One or more joke IDs to retry'
+  )
+
   args = parser.parse_args()
 
   # Handle --status flag (no logging needed)
   if args.status:
     show_status()
     sys.exit(0)
+
+  # Handle --retry flag
+  if args.retry:
+    missing = []
+    if not args.retry_pipeline:
+      missing.append('--retry-pipeline')
+    if not args.retry_stage:
+      missing.append('--retry-stage')
+    if not args.ids:
+      missing.append('--ids')
+    if missing:
+      parser.error(f"--retry requires: {', '.join(missing)}")
+
+    success = retry_jokes(args.retry_pipeline, args.retry_stage, args.ids)
+    sys.exit(0 if success else 1)
 
   # Setup logging
   if args.verbose:
