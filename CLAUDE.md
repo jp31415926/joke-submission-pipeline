@@ -167,7 +167,6 @@ The `external_scripts.py` module provides:
 - **Thresholds**:
   - `DUPLICATE_THRESHOLD` (0-100 TF-IDF similarity score)
   - `CLEANLINESS_MIN_CONFIDENCE` (0-100)
-  - `CATEGORIZATION_MIN_CONFIDENCE` (0-100)
   - `TITLE_MIN_CONFIDENCE` (0-100)
 - **Ollama Server Pool** (distributed LLM access with concurrency control):
   - `OLLAMA_SERVERS`: List of server configs `[{"url": "...", "max_concurrent": 1}, ...]`

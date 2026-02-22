@@ -95,7 +95,6 @@ Cleanliness-Confidence: 85
 Format-Status: PASS
 Format-Confidence: 92
 Categories: Animals, Wordplay
-Category-Confidence: 77
 Rejection-Reason:
 
 Why did the chicken cross the road?

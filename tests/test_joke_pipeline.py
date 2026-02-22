@@ -93,9 +93,8 @@ def mock_all_external_services():
 
     # Mock joke-extract.py (stage_incoming)
     def mock_extract(script_path, args, timeout=60):
-      # Extract email file path and success dir from args
-      email_file = args[0]
-      success_dir = args[1]
+      # args order: [success_dir, fail_dir, filepath]
+      success_dir = args[0]
 
       # Create a sample joke output
       joke_content = """Title: Sample Joke
@@ -133,12 +132,11 @@ This is a sample joke from an email."""
     mock_client_format = Mock()
     mock_client_format.system_prompt = 'You are an editor.'
     mock_client_format.user_prompt_template = 'Format: {content}'
-    mock_client_format.generate.return_value = json_lib.dumps({"formatted_joke": "This is a well-formatted sample joke from an email.", "confidence": 88, "changes": "Minor punctuation improvements"})
-    mock_client_format.parse_structured_response.return_value = {
-      'formatted_joke': 'This is a well-formatted sample joke from an email.',
-      'confidence': '88',
-      'changes': 'Minor punctuation improvements'
-    }
+    # stage_clean_checked expects: "Confidence: X\nChanges: Y\n\n<joke content>"
+    mock_client_format.generate.return_value = (
+      "Confidence: 88\nChanges: Minor punctuation improvements\n\n"
+      "This is a well-formatted sample joke from an email."
+    )
     mock_client_format.extract_confidence.return_value = 88
     mock_ollama_format.return_value = mock_client_format
 
@@ -258,7 +256,8 @@ def test_rejection_at_duplicate_stage(setup_full_pipeline):
 
     # Mock joke extraction
     def mock_extract_fn(script_path, args, timeout=60):
-      success_dir = args[1]
+      # args order: [success_dir, fail_dir, filepath]
+      success_dir = args[0]
       joke_content = """Title: Duplicate Joke
 Submitter: test@example.com
 
@@ -982,7 +981,8 @@ def test_rejection_logged_to_file(setup_full_pipeline):
 
     # Mock joke extraction
     def mock_extract_fn(script_path, args, timeout=60):
-      success_dir = args[1]
+      # args order: [success_dir, fail_dir, filepath]
+      success_dir = args[0]
       joke_content = """Title: Duplicate Joke
 Submitter: test@example.com
 
@@ -1035,7 +1035,8 @@ def test_rejection_log_separate_pipelines(setup_full_pipeline):
        patch('stage_parsed.run_external_script') as mock_tfidf:
 
     def mock_extract_fn(script_path, args, timeout=60):
-      success_dir = args[1]
+      # args order: [success_dir, fail_dir, filepath]
+      success_dir = args[0]
       joke_content = """Title: Duplicate Joke
 Submitter: test@example.com
 

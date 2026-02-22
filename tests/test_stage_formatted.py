@@ -153,24 +153,6 @@ def mock_ollama_too_many_categories():
     yield mock_client
 
 
-@pytest.fixture
-def mock_ollama_low_confidence():
-  """Mock Ollama client that returns low confidence."""
-  with patch('stage_formatted.OllamaClient') as mock_client_class:
-    mock_client = Mock()
-    mock_client.system_prompt = 'You are a joke categorizer.'
-    mock_client.user_prompt_template = 'Categorize: {content}'
-    import json as json_lib
-    mock_client.generate.return_value = json_lib.dumps({"categories": ["Pun"], "confidence": 45, "reason": "Not very confident about this categorization"})
-    mock_client.parse_structured_response.return_value = {
-      'categories': ['Pun'],
-      'confidence': '45',
-      'reason': 'Not very confident about this categorization'
-    }
-    mock_client.extract_confidence.return_value = 45
-    mock_client_class.return_value = mock_client
-    yield mock_client
-
 
 def test_one_category(setup_test_environment, mock_ollama_one_category):
   """Test categorization with 1 category."""
@@ -198,7 +180,7 @@ def test_one_category(setup_test_environment, mock_ollama_one_category):
   # Verify metadata
   headers, content = parse_joke_file(output_file)
   assert headers['Categories'] == 'Pun'
-  assert headers['Category-Confidence'] == '85'
+  assert 'Category-Confidence' not in headers
   assert headers['Pipeline-Stage'] == config.STAGES['categorized']
 
 
@@ -227,7 +209,7 @@ def test_two_categories(setup_test_environment, mock_ollama_two_categories):
   # Verify metadata
   headers, content = parse_joke_file(output_file)
   assert headers['Categories'] == 'Animals, Pun'
-  assert headers['Category-Confidence'] == '90'
+  assert 'Category-Confidence' not in headers
 
 
 def test_three_categories(setup_test_environment, mock_ollama_three_categories):
@@ -255,7 +237,7 @@ def test_three_categories(setup_test_environment, mock_ollama_three_categories):
   # Verify metadata
   headers, content = parse_joke_file(output_file)
   assert headers['Categories'] == 'Animals, Pun, Food'
-  assert headers['Category-Confidence'] == '88'
+  assert 'Category-Confidence' not in headers
 
 
 def test_all_invalid_categories_rejected(
@@ -467,38 +449,6 @@ def test_invalid_and_over_max_truncated(setup_test_environment):
     ]
 
 
-def test_low_confidence_rejected(
-  setup_test_environment,
-  mock_ollama_low_confidence
-):
-  """Test that low confidence results in rejection."""
-  env = setup_test_environment
-
-  # Copy joke to input directory
-  source_joke = os.path.join(
-    os.path.dirname(__file__),
-    'fixtures',
-    'jokes',
-    'pun_joke.txt'
-  )
-  dest_joke = os.path.join(env['input_dir'], 'pun_joke.txt')
-  shutil.copy(source_joke, dest_joke)
-
-  # Run processor
-  processor = FormattedProcessor()
-  processor.run()
-
-  # Verify file moved to reject directory
-  reject_file = os.path.join(env['reject_dir'], 'pun_joke.txt')
-  assert os.path.exists(reject_file)
-
-  # Verify rejection reason
-  headers, content = parse_joke_file(reject_file)
-  assert 'Rejection-Reason' in headers
-  assert 'confidence' in headers['Rejection-Reason'].lower()
-  assert '45' in headers['Rejection-Reason']
-
-
 def test_metadata_updates(setup_test_environment, mock_ollama_one_category):
   """Test that metadata fields are updated correctly."""
   env = setup_test_environment
@@ -523,11 +473,7 @@ def test_metadata_updates(setup_test_environment, mock_ollama_one_category):
 
   # Check required fields
   assert 'Categories' in headers
-  assert 'Category-Confidence' in headers
-
-  # Confidence should be an integer string
-  confidence = int(headers['Category-Confidence'])
-  assert 0 <= confidence <= 100
+  assert 'Category-Confidence' not in headers
 
   # Categories should be from valid list
   categories = [cat.strip() for cat in headers['Categories'].split(',')]

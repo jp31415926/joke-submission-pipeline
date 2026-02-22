@@ -34,7 +34,7 @@ class CleanCheckedProcessor(StageProcessor):
       config.OLLAMA_FORMATTING,
       stage_name="formatting"
     )
-    self.min_confidence = config.CATEGORIZATION_MIN_CONFIDENCE
+    self.min_confidence = config.CLEANLINESS_MIN_CONFIDENCE
 
   def _parse_llm_response(
     self,

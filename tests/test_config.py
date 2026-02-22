@@ -57,7 +57,6 @@ def test_required_constants_present():
     # Thresholds
     assert hasattr(config, 'DUPLICATE_THRESHOLD')
     assert hasattr(config, 'CLEANLINESS_MIN_CONFIDENCE')
-    assert hasattr(config, 'CATEGORIZATION_MIN_CONFIDENCE')
     assert hasattr(config, 'TITLE_MIN_CONFIDENCE')
 
     # Ollama server pool
@@ -100,7 +99,6 @@ def test_data_types():
     # Thresholds should be integers
     assert isinstance(config.DUPLICATE_THRESHOLD, int)
     assert isinstance(config.CLEANLINESS_MIN_CONFIDENCE, int)
-    assert isinstance(config.CATEGORIZATION_MIN_CONFIDENCE, int)
     assert isinstance(config.TITLE_MIN_CONFIDENCE, int)
 
     # MAX_RETRIES should be an integer

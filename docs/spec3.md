@@ -138,7 +138,6 @@ Cleanliness-Confidence: 85
 Format-Status: PASS
 Format-Confidence: 92
 Categories: Animals, Wordplay
-Category-Confidence: 77
 Rejection-Reason:
 
 Why did the chicken cross the road?
@@ -161,7 +160,6 @@ To get to the other side!
 | Format-Status            | 04_clean_checked   | PASS or FAIL                             |
 | Format-Confidence        | 04_clean_checked   | 0-100 integer                            |
 | Categories               | 05_formatted       | Comma-separated list                     |
-| Category-Confidence      | 05_formatted       | 0-100 integer                            |
 | Rejection-Reason         | Any reject stage   | Description of why rejected              |
 
 **Notes:**
@@ -182,7 +180,7 @@ To get to the other side!
 | **02_parsed/**           | 01_incoming/         | Duplicate check using `search_tfidf.py`         | 03_deduped/          | 51_rejected_duplicate/   | Output parsed; score > threshold = reject                          |
 | **03_deduped/**          | 02_parsed/           | Cleanliness LLM check                           | 04_clean_checked/    | 52_rejected_cleanliness/ | Confidence must be >= 70 (configurable)                            |
 | **04_clean_checked/**    | 03_deduped/          | Formatting LLM                                  | 05_formatted/        | 53_rejected_format/      | Updates joke content with formatted version                        |
-| **05_formatted/**        | 04_clean_checked/    | Categorization LLM                              | 06_categorized/      | 54_rejected_category/    | Confidence must be >= 70 (configurable); assigns 1-10 categories   |
+| **05_formatted/**        | 04_clean_checked/    | Categorization LLM                              | 06_categorized/      | 54_rejected_category/    | Assigns 1-10 categories                                            |
 | **06_categorized/**      | 05_formatted/        | Title generation LLM (only if blank)            | 07_titled/           | 55_rejected_titled/      | Skips jokes with existing title                                    |
 | **07_titled/**           | 06_categorized/      | Final validation                                | 08_ready_for_review/ | 55_rejected_titled/      | Validates all required fields present                              |
 | **08_ready_for_review/** | 07_titled/           | Manual review (out of scope)                    | N/A                  | N/A                      | Holding area; reviewers manually move files (outside this project) |
@@ -504,7 +502,6 @@ OLLAMA_TIMEOUT = 300  # For LLM API calls
 # Thresholds
 DUPLICATE_THRESHOLD = 70  # 0-100 score
 CLEANLINESS_MIN_CONFIDENCE = 70  # 0-100
-CATEGORIZATION_MIN_CONFIDENCE = 70  # 0-100
 TITLE_MIN_CONFIDENCE = 70  # 0-100
 
 # Ollama LLM Configuration - Cleanliness Check

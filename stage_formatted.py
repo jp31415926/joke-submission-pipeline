@@ -36,7 +36,6 @@ class FormattedProcessor(StageProcessor):
       config.OLLAMA_CATEGORIZATION,
       stage_name="categorization"
     )
-    self.min_confidence = config.CATEGORIZATION_MIN_CONFIDENCE
     self.valid_categories = joke_categories.VALID_CATEGORIES
     self.max_categories = joke_categories.MAX_CATEGORIES_PER_JOKE
 
@@ -172,43 +171,15 @@ class FormattedProcessor(StageProcessor):
         self.logger.error(f"{joke_id} {error_msg}")
         return (False, headers, content, error_msg)
 
-      ### REMOVE CONFIDENCE START
-      # Extract confidence
-      # confidence = response_dict.get('confidence')
-      # if confidence is None:
-      #   confidence = self.ollama_client.extract_confidence(response_dict)
-      # if confidence is None:
-      #   self.logger.warning(
-      #     f"{joke_id} Could not extract confidence, using 0"
-      #   )
-      #   confidence = 0
-
-      # don't care about confidence for categories
-      confidence = 100
-      ### REMOVE CONFIDENCE END
-
       # Extract reason
       reason = response_dict.get('reason', 'No reason provided')
 
       # Update headers
       headers['Categories'] = ', '.join(validated_categories)
-      headers['Category-Confidence'] = str(confidence)
 
       self.logger.info(
-        f"{joke_id} Categorization: Categories={validated_categories}, Confidence={confidence}, Reason: {reason}"
+        f"{joke_id} Categorization: Categories={validated_categories}, Reason: {reason}"
       )
-
-      # Check confidence threshold
-      if confidence < self.min_confidence:
-        reject_reason = (
-          f"Confidence {confidence} below minimum "
-          f"{self.min_confidence}"
-        )
-        self.logger.warning(
-          f"{joke_id} Rejected due to low categorization confidence: "
-          f"{confidence} < {self.min_confidence}"
-        )
-        return (False, headers, content, reject_reason)
 
       # Success
       self.logger.debug(
