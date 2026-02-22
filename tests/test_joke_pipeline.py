@@ -44,19 +44,19 @@ def setup_full_pipeline():
 
   # Create all stage directories for main pipeline
   stages = [
-    "01_incoming",
-    "02_parsed",
-    "03_deduped",
-    "04_clean_checked",
-    "05_formatted",
-    "06_categorized",
+    "01_parse",
+    "02_dedup",
+    "03_clean_check",
+    "04_format",
+    "05_categorize",
+    "06_title",
     "08_ready_for_review",
     "50_rejected_parse",
-    "51_rejected_duplicate",
-    "52_rejected_cleanliness",
+    "51_rejected_dedup",
+    "52_rejected_clean_check",
     "53_rejected_format",
-    "54_rejected_category",
-    "55_rejected_titled"
+    "54_rejected_categorize",
+    "55_rejected_title"
   ]
 
   for stage in stages:
@@ -84,14 +84,14 @@ def setup_full_pipeline():
 @pytest.fixture
 def mock_all_external_services():
   """Mock all external services (Ollama, external scripts)."""
-  with patch('stage_incoming.run_external_script') as mock_joke_extract, \
-       patch('stage_parsed.run_external_script') as mock_tfidf, \
-       patch('stage_deduped.OllamaClient') as mock_ollama_deduped, \
-       patch('stage_clean_checked.OllamaClient') as mock_ollama_format, \
-       patch('stage_formatted.OllamaClient') as mock_ollama_categorize, \
-       patch('stage_categorized.OllamaClient') as mock_ollama_title:
+  with patch('stage_parse.run_external_script') as mock_joke_extract, \
+       patch('stage_dedup.run_external_script') as mock_tfidf, \
+       patch('stage_clean_check.OllamaClient') as mock_ollama_deduped, \
+       patch('stage_format.OllamaClient') as mock_ollama_format, \
+       patch('stage_categorize.OllamaClient') as mock_ollama_categorize, \
+       patch('stage_title.OllamaClient') as mock_ollama_title:
 
-    # Mock joke-extract.py (stage_incoming)
+    # Mock joke-extract.py (stage_parse)
     def mock_extract(script_path, args, timeout=60):
       # args order: [success_dir, fail_dir, filepath]
       success_dir = args[0]
@@ -111,10 +111,10 @@ This is a sample joke from an email."""
 
     mock_joke_extract.side_effect = mock_extract
 
-    # Mock search_tfidf.py (stage_parsed)
+    # Mock search_tfidf.py (stage_dedup)
     mock_tfidf.return_value = (0, '35 1234 Similar Joke Title', '')
 
-    # Mock Ollama for cleanliness check (stage_deduped)
+    # Mock Ollama for cleanliness check (stage_clean_check)
     mock_client_deduped = Mock()
     mock_client_deduped.system_prompt = 'You are a content moderator.'
     mock_client_deduped.user_prompt_template = 'Evaluate: {content}'
@@ -128,11 +128,11 @@ This is a sample joke from an email."""
     mock_client_deduped.extract_confidence.return_value = 90
     mock_ollama_deduped.return_value = mock_client_deduped
 
-    # Mock Ollama for formatting (stage_clean_checked)
+    # Mock Ollama for formatting (stage_format)
     mock_client_format = Mock()
     mock_client_format.system_prompt = 'You are an editor.'
     mock_client_format.user_prompt_template = 'Format: {content}'
-    # stage_clean_checked expects: "Confidence: X\nChanges: Y\n\n<joke content>"
+    # stage_format expects: "Confidence: X\nChanges: Y\n\n<joke content>"
     mock_client_format.generate.return_value = (
       "Confidence: 88\nChanges: Minor punctuation improvements\n\n"
       "This is a well-formatted sample joke from an email."
@@ -140,7 +140,7 @@ This is a sample joke from an email."""
     mock_client_format.extract_confidence.return_value = 88
     mock_ollama_format.return_value = mock_client_format
 
-    # Mock Ollama for categorization (stage_formatted)
+    # Mock Ollama for categorization (stage_categorize)
     mock_client_categorize = Mock()
     mock_client_categorize.system_prompt = 'You are a joke categorizer.'
     mock_client_categorize.user_prompt_template = 'Categorize: {content}'
@@ -153,7 +153,7 @@ This is a sample joke from an email."""
     mock_client_categorize.extract_confidence.return_value = 85
     mock_ollama_categorize.return_value = mock_client_categorize
 
-    # Mock Ollama for title generation (stage_categorized)
+    # Mock Ollama for title generation (stage_title)
     # Not needed if title exists, but mock it anyway
     mock_client_title = Mock()
     mock_client_title.system_prompt = 'You are a title writer.'
@@ -177,7 +177,7 @@ def test_full_pipeline_success(setup_full_pipeline, mock_all_external_services):
   # Create a sample email in incoming directory
   email_file = os.path.join(
     env['pipeline_main'],
-    '01_incoming',
+    '01_parse',
     'test_email.eml'
   )
   with open(email_file, 'w', encoding='utf-8') as f:
@@ -217,7 +217,7 @@ def test_priority_pipeline_first(setup_full_pipeline, mock_all_external_services
   # Create email in priority pipeline
   priority_email = os.path.join(
     env['pipeline_priority'],
-    '01_incoming',
+    '01_parse',
     'priority_email.eml'
   )
   with open(priority_email, 'w', encoding='utf-8') as f:
@@ -226,7 +226,7 @@ def test_priority_pipeline_first(setup_full_pipeline, mock_all_external_services
   # Create email in main pipeline
   main_email = os.path.join(
     env['pipeline_main'],
-    '01_incoming',
+    '01_parse',
     'main_email.eml'
   )
   with open(main_email, 'w', encoding='utf-8') as f:
@@ -251,8 +251,8 @@ def test_rejection_at_duplicate_stage(setup_full_pipeline):
   env = setup_full_pipeline
 
   # Mock high duplicate score
-  with patch('stage_incoming.run_external_script') as mock_extract, \
-       patch('stage_parsed.run_external_script') as mock_tfidf:
+  with patch('stage_parse.run_external_script') as mock_extract, \
+       patch('stage_dedup.run_external_script') as mock_tfidf:
 
     # Mock joke extraction
     def mock_extract_fn(script_path, args, timeout=60):
@@ -275,7 +275,7 @@ This is a duplicate joke."""
     # Create email
     email_file = os.path.join(
       env['pipeline_main'],
-      '01_incoming',
+      '01_parse',
       'test_email.eml'
     )
     with open(email_file, 'w', encoding='utf-8') as f:
@@ -286,7 +286,7 @@ This is a duplicate joke."""
     pipeline_module.run_pipeline(pipeline_type="main")
 
     # Verify file was rejected
-    reject_dir = os.path.join(env['pipeline_main'], '51_rejected_duplicate')
+    reject_dir = os.path.join(env['pipeline_main'], '51_rejected_dedup')
     files = os.listdir(reject_dir)
 
     assert len(files) > 0
@@ -306,7 +306,7 @@ def test_multiple_files(setup_full_pipeline, mock_all_external_services):
   for i in range(3):
     email_file = os.path.join(
       env['pipeline_main'],
-      '01_incoming',
+      '01_parse',
       f'email_{i}.eml'
     )
     with open(email_file, 'w', encoding='utf-8') as f:
@@ -336,29 +336,29 @@ def test_stage_only_execution(setup_full_pipeline):
     'Title': 'Test Joke',
     'Submitter': 'test@example.com',
     'Source-Email-File': 'test.eml',
-    'Pipeline-Stage': '02_parsed'
+    'Pipeline-Stage': '02_dedup'
   }
   content = 'This is a test joke for stage execution.'
 
   joke_file = os.path.join(
     env['pipeline_main'],
-    '02_parsed',
+    '02_dedup',
     'test_joke.txt'
   )
   write_joke_file(joke_file, headers, content)
 
   # Mock TF-IDF to return low score
-  with patch('stage_parsed.run_external_script') as mock_tfidf:
+  with patch('stage_dedup.run_external_script') as mock_tfidf:
     mock_tfidf.return_value = (0, '25 1234 Different Joke', '')
 
     # Run only parsed stage
     pipeline_module = import_joke_pipeline()
-    success = pipeline_module.run_pipeline(pipeline_type="main", stage_only="parsed")
+    success = pipeline_module.run_pipeline(pipeline_type="main", stage_only="dedup")
 
     assert success
 
     # Verify file moved to deduped stage
-    deduped_dir = os.path.join(env['pipeline_main'], '03_deduped')
+    deduped_dir = os.path.join(env['pipeline_main'], '03_clean_check')
     files = os.listdir(deduped_dir)
 
     assert len(files) > 0
@@ -367,7 +367,7 @@ def test_stage_only_execution(setup_full_pipeline):
     deduped_file = os.path.join(deduped_dir, files[0])
     headers, content = parse_joke_file(deduped_file)
     assert 'Duplicate-Score' in headers
-    assert headers['Pipeline-Stage'] == config.STAGES['deduped']
+    assert headers['Pipeline-Stage'] == config.STAGES['clean_check']
 
 
 def test_command_line_help():
@@ -403,7 +403,7 @@ def test_command_line_verbose_flag(setup_full_pipeline, mock_all_external_servic
   # Create a sample email
   email_file = os.path.join(
     env['pipeline_main'],
-    '01_incoming',
+    '01_parse',
     'test_email.eml'
   )
   with open(email_file, 'w', encoding='utf-8') as f:
@@ -440,14 +440,14 @@ def test_status_with_missing_files(setup_full_pipeline):
   for i in range(5):
     joke_file = os.path.join(
       env['pipeline_main'],
-      '02_parsed',
+      '02_dedup',
       f'joke_{i}.txt'
     )
     headers = {
       'Joke-ID': f'12345678-1234-1234-1234-12345678901{i}',
       'Title': f'Test Joke {i}',
       'Submitter': 'test@example.com',
-      'Pipeline-Stage': '02_parsed'
+      'Pipeline-Stage': '02_dedup'
     }
     write_joke_file(joke_file, headers, f'Content {i}')
 
@@ -465,7 +465,7 @@ def test_status_with_missing_files(setup_full_pipeline):
   with patch('os.path.getmtime', side_effect=mock_getmtime):
     # Should not raise an exception
     count, oldest = pipeline_module.get_directory_status(
-      os.path.join(env['pipeline_main'], '02_parsed')
+      os.path.join(env['pipeline_main'], '02_dedup')
     )
 
     # Should still return some count (files that weren't "deleted")
@@ -483,7 +483,7 @@ def test_status_with_inaccessible_directory(setup_full_pipeline):
   assert oldest is None
 
   # Test with directory that becomes inaccessible
-  test_dir = os.path.join(env['pipeline_main'], '02_parsed')
+  test_dir = os.path.join(env['pipeline_main'], '02_dedup')
 
   with patch('os.listdir', side_effect=PermissionError("Access denied")):
     count, oldest = pipeline_module.get_directory_status(test_dir)
@@ -499,14 +499,14 @@ def test_show_status_with_missing_tmp_dirs(setup_full_pipeline):
   # Create some test files in regular directories
   joke_file = os.path.join(
     env['pipeline_main'],
-    '02_parsed',
+    '02_dedup',
     'joke_1.txt'
   )
   headers = {
     'Joke-ID': '12345678-1234-1234-1234-123456789012',
     'Title': 'Test Joke',
     'Submitter': 'test@example.com',
-    'Pipeline-Stage': '02_parsed'
+    'Pipeline-Stage': '02_dedup'
   }
   write_joke_file(joke_file, headers, 'Content')
 
@@ -536,14 +536,14 @@ def test_command_line_status(setup_full_pipeline):
   # Create a test file
   joke_file = os.path.join(
     env['pipeline_main'],
-    '02_parsed',
+    '02_dedup',
     'joke_1.txt'
   )
   headers = {
     'Joke-ID': '12345678-1234-1234-1234-123456789012',
     'Title': 'Test Joke',
     'Submitter': 'test@example.com',
-    'Pipeline-Stage': '02_parsed'
+    'Pipeline-Stage': '02_dedup'
   }
   write_joke_file(joke_file, headers, 'Content')
 
@@ -578,19 +578,19 @@ def test_stage_processor_stops_on_all_stop(setup_full_pipeline):
     for i in range(5):
       joke_file = os.path.join(
         env['pipeline_main'],
-        '02_parsed',
+        '02_dedup',
         f'joke_{i}.txt'
       )
       headers = {
         'Joke-ID': f'12345678-1234-1234-1234-12345678901{i}',
         'Title': f'Test Joke {i}',
         'Submitter': 'test@example.com',
-        'Pipeline-Stage': '02_parsed'
+        'Pipeline-Stage': '02_dedup'
       }
       write_joke_file(joke_file, headers, f'Content {i}')
 
     # Mock TF-IDF to return low score
-    with patch('stage_parsed.run_external_script') as mock_tfidf:
+    with patch('stage_dedup.run_external_script') as mock_tfidf:
       # Create ALL_STOP file after processing first file
       call_count = [0]
 
@@ -606,10 +606,10 @@ def test_stage_processor_stops_on_all_stop(setup_full_pipeline):
 
       # Run parsed stage
       pipeline_module = import_joke_pipeline()
-      pipeline_module.run_pipeline(pipeline_type="main", stage_only="parsed")
+      pipeline_module.run_pipeline(pipeline_type="main", stage_only="dedup")
 
       # Not all files should be processed (stopped by ALL_STOP)
-      deduped_dir = os.path.join(env['pipeline_main'], '03_deduped')
+      deduped_dir = os.path.join(env['pipeline_main'], '03_clean_check')
       deduped_files = os.listdir(deduped_dir) if os.path.exists(deduped_dir) else []
 
       # Should have processed fewer than 5 files
@@ -638,27 +638,27 @@ def test_stage_processor_continues_without_all_stop(setup_full_pipeline):
     for i in range(3):
       joke_file = os.path.join(
         env['pipeline_main'],
-        '02_parsed',
+        '02_dedup',
         f'joke_{i}.txt'
       )
       headers = {
         'Joke-ID': f'12345678-1234-1234-1234-12345678901{i}',
         'Title': f'Test Joke {i}',
         'Submitter': 'test@example.com',
-        'Pipeline-Stage': '02_parsed'
+        'Pipeline-Stage': '02_dedup'
       }
       write_joke_file(joke_file, headers, f'Content {i}')
 
     # Mock TF-IDF to return low score
-    with patch('stage_parsed.run_external_script') as mock_tfidf:
+    with patch('stage_dedup.run_external_script') as mock_tfidf:
       mock_tfidf.return_value = (0, '25 1234 Different Joke', '')
 
       # Run parsed stage
       pipeline_module = import_joke_pipeline()
-      pipeline_module.run_pipeline(pipeline_type="main", stage_only="parsed")
+      pipeline_module.run_pipeline(pipeline_type="main", stage_only="dedup")
 
       # All files should be processed
-      deduped_dir = os.path.join(env['pipeline_main'], '03_deduped')
+      deduped_dir = os.path.join(env['pipeline_main'], '03_clean_check')
       deduped_files = [f for f in os.listdir(deduped_dir)
                        if f.endswith('.txt')]
 
@@ -676,14 +676,14 @@ def test_files_moved_to_tmp_during_processing(setup_full_pipeline):
   # Create a test file
   joke_file = os.path.join(
     env['pipeline_main'],
-    '02_parsed',
+    '02_dedup',
     'test_joke.txt'
   )
   headers = {
     'Joke-ID': '12345678-1234-1234-1234-123456789012',
     'Title': 'Test Joke',
     'Submitter': 'test@example.com',
-    'Pipeline-Stage': '02_parsed'
+    'Pipeline-Stage': '02_dedup'
   }
   write_joke_file(joke_file, headers, 'Test content')
 
@@ -697,15 +697,15 @@ def test_files_moved_to_tmp_during_processing(setup_full_pipeline):
   # Mock TF-IDF to check tmp location during processing
   original_run_external_script = None
   try:
-    import stage_parsed
-    original_run_external_script = stage_parsed.run_external_script
+    import stage_dedup
+    original_run_external_script = stage_dedup.run_external_script
 
     def mock_tfidf_check(*args, **kwargs):
       processing_started[0] = True
       # Check if file is in tmp directory during processing
       tmp_file = os.path.join(
         env['pipeline_main'],
-        '02_parsed',
+        '02_dedup',
         'tmp',
         'test_joke.txt'
       )
@@ -714,7 +714,7 @@ def test_files_moved_to_tmp_during_processing(setup_full_pipeline):
       # Also verify file is NOT in the original location
       original_file = os.path.join(
         env['pipeline_main'],
-        '02_parsed',
+        '02_dedup',
         'test_joke.txt'
       )
       original_exists = os.path.exists(original_file)
@@ -730,11 +730,11 @@ def test_files_moved_to_tmp_during_processing(setup_full_pipeline):
 
       return (0, '25 1234 Different Joke', '')
 
-    stage_parsed.run_external_script = mock_tfidf_check
+    stage_dedup.run_external_script = mock_tfidf_check
 
     # Run parsed stage
     pipeline_module = import_joke_pipeline()
-    pipeline_module.run_pipeline(pipeline_type="main", stage_only="parsed")
+    pipeline_module.run_pipeline(pipeline_type="main", stage_only="dedup")
 
     # Verify processing occurred
     assert processing_started[0], "Processing should have started"
@@ -743,14 +743,14 @@ def test_files_moved_to_tmp_during_processing(setup_full_pipeline):
     # After processing, file should be in output directory, not tmp
     tmp_file = os.path.join(
       env['pipeline_main'],
-      '02_parsed',
+      '02_dedup',
       'tmp',
       'test_joke.txt'
     )
     assert not os.path.exists(tmp_file), "File should not remain in tmp after processing"
 
     # File should be in output directory
-    deduped_dir = os.path.join(env['pipeline_main'], '03_deduped')
+    deduped_dir = os.path.join(env['pipeline_main'], '03_clean_check')
     deduped_files = [f for f in os.listdir(deduped_dir)
                      if f.endswith('.txt')]
     assert len(deduped_files) == 1, "File should be in output directory"
@@ -758,7 +758,7 @@ def test_files_moved_to_tmp_during_processing(setup_full_pipeline):
   finally:
     # Restore original function
     if original_run_external_script:
-      stage_parsed.run_external_script = original_run_external_script
+      stage_dedup.run_external_script = original_run_external_script
 
 
 def test_tmp_directory_created_if_missing(setup_full_pipeline):
@@ -766,7 +766,7 @@ def test_tmp_directory_created_if_missing(setup_full_pipeline):
   env = setup_full_pipeline
 
   # Ensure tmp directory doesn't exist
-  tmp_dir = os.path.join(env['pipeline_main'], '02_parsed', 'tmp')
+  tmp_dir = os.path.join(env['pipeline_main'], '02_dedup', 'tmp')
   if os.path.exists(tmp_dir):
     shutil.rmtree(tmp_dir)
 
@@ -775,24 +775,24 @@ def test_tmp_directory_created_if_missing(setup_full_pipeline):
   # Create a test file
   joke_file = os.path.join(
     env['pipeline_main'],
-    '02_parsed',
+    '02_dedup',
     'test_joke.txt'
   )
   headers = {
     'Joke-ID': '12345678-1234-1234-1234-123456789012',
     'Title': 'Test Joke',
     'Submitter': 'test@example.com',
-    'Pipeline-Stage': '02_parsed'
+    'Pipeline-Stage': '02_dedup'
   }
   write_joke_file(joke_file, headers, 'Test content')
 
   # Mock TF-IDF
-  with patch('stage_parsed.run_external_script') as mock_tfidf:
+  with patch('stage_dedup.run_external_script') as mock_tfidf:
     mock_tfidf.return_value = (0, '25 1234 Different Joke', '')
 
     # Run parsed stage
     pipeline_module = import_joke_pipeline()
-    pipeline_module.run_pipeline(pipeline_type="main", stage_only="parsed")
+    pipeline_module.run_pipeline(pipeline_type="main", stage_only="dedup")
 
     # tmp directory should have been created
     assert os.path.exists(tmp_dir), "tmp directory should be created"
@@ -805,20 +805,20 @@ def test_processing_file_created_and_deleted(setup_full_pipeline):
   # Create a test file
   joke_file = os.path.join(
     env['pipeline_main'],
-    '02_parsed',
+    '02_dedup',
     'test_joke.txt'
   )
   headers = {
     'Joke-ID': '12345678-1234-1234-1234-123456789012',
     'Title': 'Test Joke',
     'Submitter': 'test@example.com',
-    'Pipeline-Stage': '02_parsed'
+    'Pipeline-Stage': '02_dedup'
   }
   write_joke_file(joke_file, headers, 'Test content')
 
   processing_file_path = os.path.join(
     env['pipeline_main'],
-    '02_parsed',
+    '02_dedup',
     'tmp',
     'PROCESSING'
   )
@@ -830,8 +830,8 @@ def test_processing_file_created_and_deleted(setup_full_pipeline):
   # Mock TF-IDF to check PROCESSING file during processing
   original_run_external_script = None
   try:
-    import stage_parsed
-    original_run_external_script = stage_parsed.run_external_script
+    import stage_dedup
+    original_run_external_script = stage_dedup.run_external_script
 
     def mock_tfidf_check(*args, **kwargs):
       # Check if PROCESSING file exists during processing
@@ -841,11 +841,11 @@ def test_processing_file_created_and_deleted(setup_full_pipeline):
           processing_file_content[0] = f.read()
       return (0, '25 1234 Different Joke', '')
 
-    stage_parsed.run_external_script = mock_tfidf_check
+    stage_dedup.run_external_script = mock_tfidf_check
 
     # Run parsed stage
     pipeline_module = import_joke_pipeline()
-    pipeline_module.run_pipeline(pipeline_type="main", stage_only="parsed")
+    pipeline_module.run_pipeline(pipeline_type="main", stage_only="dedup")
 
     # PROCESSING file should have existed during processing
     assert processing_file_existed[0], "PROCESSING file should exist during processing"
@@ -859,7 +859,7 @@ def test_processing_file_created_and_deleted(setup_full_pipeline):
   finally:
     # Restore original function
     if original_run_external_script:
-      stage_parsed.run_external_script = original_run_external_script
+      stage_dedup.run_external_script = original_run_external_script
 
 
 def test_status_displays_processing_id(setup_full_pipeline):
@@ -869,21 +869,21 @@ def test_status_displays_processing_id(setup_full_pipeline):
   # Create a test file
   joke_file = os.path.join(
     env['pipeline_main'],
-    '02_parsed',
+    '02_dedup',
     'test_joke.txt'
   )
   headers = {
     'Joke-ID': 'abcdefgh-1234-5678-9abc-def123456789',
     'Title': 'Test Joke',
     'Submitter': 'test@example.com',
-    'Pipeline-Stage': '02_parsed'
+    'Pipeline-Stage': '02_dedup'
   }
   write_joke_file(joke_file, headers, 'Test content')
 
   # Create a PROCESSING file to simulate active processing
   processing_file = os.path.join(
     env['pipeline_main'],
-    '02_parsed',
+    '02_dedup',
     'tmp',
     'PROCESSING'
   )
@@ -942,8 +942,8 @@ def test_rejection_logged_to_file(setup_full_pipeline):
   env = setup_full_pipeline
 
   # Mock high duplicate score to trigger rejection
-  with patch('stage_incoming.run_external_script') as mock_extract, \
-       patch('stage_parsed.run_external_script') as mock_tfidf:
+  with patch('stage_parse.run_external_script') as mock_extract, \
+       patch('stage_dedup.run_external_script') as mock_tfidf:
 
     # Mock joke extraction
     def mock_extract_fn(script_path, args, timeout=60):
@@ -966,7 +966,7 @@ This is a duplicate joke."""
     # Create email
     email_file = os.path.join(
       env['pipeline_main'],
-      '01_incoming',
+      '01_parse',
       'test_email.eml'
     )
     with open(email_file, 'w', encoding='utf-8') as f:
@@ -977,7 +977,7 @@ This is a duplicate joke."""
     pipeline_module.run_pipeline(pipeline_type="main")
 
     # Check that rejection log was created
-    log_file = os.path.join(config.LOG_DIR, 'main_rejected_duplicate.log')
+    log_file = os.path.join(config.LOG_DIR, 'main_rejected_dedup.log')
     assert os.path.exists(log_file), f"Rejection log should exist at {log_file}"
 
     # Read log file
@@ -997,8 +997,8 @@ def test_rejection_log_separate_pipelines(setup_full_pipeline):
   env = setup_full_pipeline
 
   # Mock high duplicate score
-  with patch('stage_incoming.run_external_script') as mock_extract, \
-       patch('stage_parsed.run_external_script') as mock_tfidf:
+  with patch('stage_parse.run_external_script') as mock_extract, \
+       patch('stage_dedup.run_external_script') as mock_tfidf:
 
     def mock_extract_fn(script_path, args, timeout=60):
       # args order: [success_dir, fail_dir, filepath]
@@ -1018,7 +1018,7 @@ This is a duplicate joke."""
     # Create email in main pipeline
     main_email = os.path.join(
       env['pipeline_main'],
-      '01_incoming',
+      '01_parse',
       'main_email.eml'
     )
     with open(main_email, 'w', encoding='utf-8') as f:
@@ -1027,7 +1027,7 @@ This is a duplicate joke."""
     # Create email in priority pipeline
     priority_email = os.path.join(
       env['pipeline_priority'],
-      '01_incoming',
+      '01_parse',
       'priority_email.eml'
     )
     with open(priority_email, 'w', encoding='utf-8') as f:
@@ -1038,8 +1038,8 @@ This is a duplicate joke."""
     pipeline_module.run_pipeline(pipeline_type="both")
 
     # Check that separate log files exist
-    main_log = os.path.join(config.LOG_DIR, 'main_rejected_duplicate.log')
-    pri_log = os.path.join(config.LOG_DIR, 'pri_rejected_duplicate.log')
+    main_log = os.path.join(config.LOG_DIR, 'main_rejected_dedup.log')
+    pri_log = os.path.join(config.LOG_DIR, 'pri_rejected_dedup.log')
 
     assert os.path.exists(main_log), "Main rejection log should exist"
     assert os.path.exists(pri_log), "Priority rejection log should exist"
@@ -1061,27 +1061,27 @@ def test_rejection_log_newlines_replaced(setup_full_pipeline):
   # Create a test file in parsed stage
   joke_file = os.path.join(
     env['pipeline_main'],
-    '02_parsed',
+    '02_dedup',
     'test_joke.txt'
   )
   headers = {
     'Joke-ID': '12345678-1234-1234-1234-123456789012',
     'Title': 'Test Joke',
     'Submitter': 'test@example.com',
-    'Pipeline-Stage': '02_parsed'
+    'Pipeline-Stage': '02_dedup'
   }
   write_joke_file(joke_file, headers, 'Test content')
 
   # Mock to return a rejection reason with newlines
-  with patch('stage_parsed.run_external_script') as mock_tfidf:
+  with patch('stage_dedup.run_external_script') as mock_tfidf:
     mock_tfidf.return_value = (0, '95 1234 Very Similar Joke', '')
 
     # Run pipeline
     pipeline_module = import_joke_pipeline()
-    pipeline_module.run_pipeline(pipeline_type="main", stage_only="parsed")
+    pipeline_module.run_pipeline(pipeline_type="main", stage_only="dedup")
 
     # Check rejection log
-    log_file = os.path.join(config.LOG_DIR, 'main_rejected_duplicate.log')
+    log_file = os.path.join(config.LOG_DIR, 'main_rejected_dedup.log')
     assert os.path.exists(log_file)
 
     with open(log_file, 'r') as f:
@@ -1122,17 +1122,17 @@ def test_retry_moves_file_to_retry_stage(setup_full_pipeline):
   env = setup_full_pipeline
   joke_id = '11111111-1111-1111-1111-111111111111'
 
-  reject_dir = os.path.join(env['pipeline_main'], config.REJECTS['duplicate'])
+  reject_dir = os.path.join(env['pipeline_main'], config.REJECTS['dedup'])
   _make_rejected_joke(
-    reject_dir, joke_id, config.REJECTS['duplicate'], 'Duplicate detected'
+    reject_dir, joke_id, config.REJECTS['dedup'], 'Duplicate detected'
   )
 
   pipeline_module = import_joke_pipeline()
-  result = pipeline_module.retry_jokes('main', 'duplicate', [joke_id])
+  result = pipeline_module.retry_jokes('main', 'dedup', [joke_id])
 
   assert result is True
   assert not os.path.exists(os.path.join(reject_dir, f"{joke_id}.txt"))
-  retry_dir = os.path.join(env['pipeline_main'], config.STAGES['parsed'])
+  retry_dir = os.path.join(env['pipeline_main'], config.STAGES['dedup'])
   assert os.path.exists(os.path.join(retry_dir, f"{joke_id}.txt"))
 
 
@@ -1141,20 +1141,20 @@ def test_retry_clears_rejection_reason(setup_full_pipeline):
   env = setup_full_pipeline
   joke_id = '22222222-2222-2222-2222-222222222222'
 
-  reject_dir = os.path.join(env['pipeline_main'], config.REJECTS['category'])
+  reject_dir = os.path.join(env['pipeline_main'], config.REJECTS['categorize'])
   _make_rejected_joke(
-    reject_dir, joke_id, config.REJECTS['category'], 'No valid categories'
+    reject_dir, joke_id, config.REJECTS['categorize'], 'No valid categories'
   )
 
   pipeline_module = import_joke_pipeline()
-  pipeline_module.retry_jokes('main', 'category', [joke_id])
+  pipeline_module.retry_jokes('main', 'categorize', [joke_id])
 
   retry_path = os.path.join(
-    env['pipeline_main'], config.STAGES['formatted'], f"{joke_id}.txt"
+    env['pipeline_main'], config.STAGES['categorize'], f"{joke_id}.txt"
   )
   headers, _ = parse_joke_file(retry_path)
   assert 'Rejection-Reason' not in headers
-  assert headers['Pipeline-Stage'] == config.STAGES['formatted']
+  assert headers['Pipeline-Stage'] == config.STAGES['categorize']
 
 
 def test_retry_updates_pipeline_stage_header(setup_full_pipeline):
@@ -1162,19 +1162,19 @@ def test_retry_updates_pipeline_stage_header(setup_full_pipeline):
   env = setup_full_pipeline
   joke_id = '33333333-3333-3333-3333-333333333333'
 
-  reject_dir = os.path.join(env['pipeline_main'], config.REJECTS['cleanliness'])
+  reject_dir = os.path.join(env['pipeline_main'], config.REJECTS['clean_check'])
   _make_rejected_joke(
-    reject_dir, joke_id, config.REJECTS['cleanliness'], 'Failed cleanliness'
+    reject_dir, joke_id, config.REJECTS['clean_check'], 'Failed cleanliness'
   )
 
   pipeline_module = import_joke_pipeline()
-  pipeline_module.retry_jokes('main', 'cleanliness', [joke_id])
+  pipeline_module.retry_jokes('main', 'clean_check', [joke_id])
 
   retry_path = os.path.join(
-    env['pipeline_main'], config.STAGES['deduped'], f"{joke_id}.txt"
+    env['pipeline_main'], config.STAGES['clean_check'], f"{joke_id}.txt"
   )
   headers, _ = parse_joke_file(retry_path)
-  assert headers['Pipeline-Stage'] == config.STAGES['deduped']
+  assert headers['Pipeline-Stage'] == config.STAGES['clean_check']
 
 
 def test_retry_multiple_ids(setup_full_pipeline):
@@ -1196,7 +1196,7 @@ def test_retry_multiple_ids(setup_full_pipeline):
   result = pipeline_module.retry_jokes('main', 'format', ids)
 
   assert result is True
-  retry_dir = os.path.join(env['pipeline_main'], config.STAGES['clean_checked'])
+  retry_dir = os.path.join(env['pipeline_main'], config.STAGES['format'])
   for joke_id in ids:
     assert os.path.exists(os.path.join(retry_dir, f"{joke_id}.txt"))
 
@@ -1205,7 +1205,7 @@ def test_retry_missing_id_returns_false(setup_full_pipeline):
   """Test that retry_jokes returns False when a joke ID is not found."""
   pipeline_module = import_joke_pipeline()
   result = pipeline_module.retry_jokes(
-    'main', 'duplicate', ['deadbeef-dead-dead-dead-deaddeadbeef']
+    'main', 'dedup', ['deadbeef-dead-dead-dead-deaddeadbeef']
   )
   assert result is False
 
@@ -1216,16 +1216,16 @@ def test_retry_partial_found(setup_full_pipeline):
   good_id = 'dddddddd-dddd-dddd-dddd-dddddddddddd'
   bad_id = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'
 
-  reject_dir = os.path.join(env['pipeline_main'], config.REJECTS['titled'])
+  reject_dir = os.path.join(env['pipeline_main'], config.REJECTS['title'])
   _make_rejected_joke(
-    reject_dir, good_id, config.REJECTS['titled'], 'Title failed'
+    reject_dir, good_id, config.REJECTS['title'], 'Title failed'
   )
 
   pipeline_module = import_joke_pipeline()
-  result = pipeline_module.retry_jokes('main', 'titled', [good_id, bad_id])
+  result = pipeline_module.retry_jokes('main', 'title', [good_id, bad_id])
 
   assert result is False  # bad_id not found
-  retry_dir = os.path.join(env['pipeline_main'], config.STAGES['categorized'])
+  retry_dir = os.path.join(env['pipeline_main'], config.STAGES['title'])
   assert os.path.exists(os.path.join(retry_dir, f"{good_id}.txt"))
 
 
@@ -1234,28 +1234,28 @@ def test_retry_priority_pipeline(setup_full_pipeline):
   env = setup_full_pipeline
   joke_id = 'ffffffff-ffff-ffff-ffff-ffffffffffff'
 
-  reject_dir = os.path.join(env['pipeline_priority'], config.REJECTS['duplicate'])
+  reject_dir = os.path.join(env['pipeline_priority'], config.REJECTS['dedup'])
   _make_rejected_joke(
-    reject_dir, joke_id, config.REJECTS['duplicate'], 'Duplicate'
+    reject_dir, joke_id, config.REJECTS['dedup'], 'Duplicate'
   )
 
   pipeline_module = import_joke_pipeline()
-  result = pipeline_module.retry_jokes('priority', 'duplicate', [joke_id])
+  result = pipeline_module.retry_jokes('priority', 'dedup', [joke_id])
 
   assert result is True
-  retry_dir = os.path.join(env['pipeline_priority'], config.STAGES['parsed'])
+  retry_dir = os.path.join(env['pipeline_priority'], config.STAGES['dedup'])
   assert os.path.exists(os.path.join(retry_dir, f"{joke_id}.txt"))
 
 
 def test_retry_cli_missing_args():
   """Test that --retry without required args exits with error."""
   result = subprocess.run(
-    ['python3', 'joke-pipeline.py', '--retry', '--retry-pipeline', 'main'],
+    ['python3', 'joke-pipeline.py', '--retry'],
     capture_output=True, text=True,
     cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
   )
   assert result.returncode != 0
-  assert '--retry-stage' in result.stderr or 'error' in result.stderr.lower()
+  assert 'error' in result.stderr.lower()
 
 
 def test_retry_all_stage_mappings(setup_full_pipeline):
@@ -1264,11 +1264,11 @@ def test_retry_all_stage_mappings(setup_full_pipeline):
   pipeline_module = import_joke_pipeline()
 
   stage_map = {
-    'duplicate': config.STAGES['parsed'],
-    'cleanliness': config.STAGES['deduped'],
-    'format': config.STAGES['clean_checked'],
-    'category': config.STAGES['formatted'],
-    'titled': config.STAGES['categorized'],
+    'dedup': config.STAGES['dedup'],
+    'clean_check': config.STAGES['clean_check'],
+    'format': config.STAGES['format'],
+    'categorize': config.STAGES['categorize'],
+    'title': config.STAGES['title'],
   }
 
   for i, (reject_stage, retry_stage) in enumerate(stage_map.items()):
