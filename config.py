@@ -47,8 +47,8 @@ OLLAMA_TIMEOUT = 3600  # Timeout for Ollama LLM API calls
 OLLAMA_SERVERS = [
   {"url": "http://localhost:11434", "max_concurrent": 1},
   # Add more servers as needed:
-  {"url": "http://192.168.99.50:11434", "max_concurrent": 1},
-  {"url": "http://192.168.99.69:11434", "max_concurrent": 1},
+  #{"url": "http://192.168.99.50:11434", "max_concurrent": 1},
+  #{"url": "http://192.168.99.69:11434", "max_concurrent": 1},
 ]
 
 # Ollama Server Locking Configuration
@@ -63,123 +63,187 @@ OLLAMA_LOCK_RETRY_JITTER = 5.0  # Max random jitter to add to retry wait (second
 # Thresholds
 DUPLICATE_THRESHOLD = 60  # 0-100 score
 CLEANLINESS_MIN_CONFIDENCE = 50  # 0-100
-CATEGORIZATION_MIN_CONFIDENCE = 50  # 0-100
 TITLE_MIN_CONFIDENCE = 50  # 0-100
 
 # Ollama LLM Configuration - Cleanliness Check
 # qwen3:8b https://huggingface.co/Qwen/Qwen3-8B
 OLLAMA_CLEANLINESS_CHECK = {
-  'OLLAMA_MODEL': 'llama3.1:8b', # qwen3:8b, gemma3:4b gemma3:12b
-  'OLLAMA_SYSTEM_PROMPT': 'You are a content moderator evaluating jokes. No markdown formatting',
-  'OLLAMA_USER_PROMPT': '''Evaluate this joke for cleanliness and appropriateness:
-Determine if this joke is:
-- Clean (no profanity, sexual content, or offensive material)
-- Appropriate for general audiences; no politics
-- Give a confidence score of 0-100
-- If status is FAIL, give a reason; otherwise leave "reason" blank
-Respond ONLY with valid JSON in this exact format:
-{{"status": "PASS or FAIL", "confidence": 0, "reason": "brief explanation"}}
+  'OLLAMA_MODEL': 'mistral-nemo:12b', # qwen3:8b, gemma3:4b gemma3:12b
+  'OLLAMA_SYSTEM_PROMPT': 'You are a strict content safety reviewer.',
+  'OLLAMA_USER_PROMPT': '''Your task is to evaluate the following joke for cleanliness and appropriateness.
 
-<joke>
+Assess the joke for:
+- profanity or crude language
+- sexual content or innuendo
+- hate, harassment, or slurs
+- violence or threats
+- adult or explicit themes
+- discriminatory or demeaning language
+
+DEFINITIONS:
+- "PASS" means the joke is clean and appropriate for a general audience.
+- "FAIL" means the joke contains any content that may be inappropriate, offensive, or unsafe.
+
+SCORING:
+- Give a confidence score from 0 to 100 indicating how certain you are in your PASS/FAIL decision.
+
+OUTPUT RULES:
+- Return ONLY a single JSON object.
+- Use this exact structure and field names:
+{{"status": "PASS" or "FAIL", "confidence": <integer 0-100>, "reason": "<brief explanation>"}}
+
+Do NOT include any text outside the JSON.
+
+Joke:
 {content}
-</joke>''',
-  'OLLAMA_KEEP_ALIVE': '1m',
+''',
+  'OLLAMA_KEEP_ALIVE': 0,#1m
   'OLLAMA_OPTIONS': {
-    'temperature': 0.4,
+    'temperature': 0.2,
     'num_ctx': 65536,
-    'repeat_penalty': 1.1,
-    'top_k': 15,
-    'top_p': 0.7,
-    'min_p': 0.0,
-    'repeat_last_n': 64,
+    'repeat_penalty': 1.05,
+    'top_k': 20,
+    'top_p': 0.9,
+    'min_p': 0.05,
+    'repeat_last_n': 32,
   }
 }
 
 # Ollama LLM Configuration - Formatting
 OLLAMA_FORMATTING = {
-  'OLLAMA_MODEL': 'llama3.1:8b', # qwen3:8b, gemma3:4b, gemma3:12b, llama3.2:3b
-  'OLLAMA_SYSTEM_PROMPT': 'You are an editor improving joke formatting and grammar',
-  'OLLAMA_USER_PROMPT': '''Correct the grammar, spelling, and punctuation of the following text.
-- Do not change the wording or tone unless it is necessary for clarity.
-- Keep the joke's punchline intact.
-- No markdown formatting. Do not use em dashes
-- Respond ONLY in this exact format (two header lines, a blank line, then the corrected joke):
-Confidence: <number 0-100>
-Changes: <brief description of changes, or None>
+  'OLLAMA_MODEL': 'qwen2.5:7b', # qwen3:8b, gemma3:4b, gemma3:12b, llama3.2:3b
+  'OLLAMA_SYSTEM_PROMPT': 'You are a literal text correction engine.',
+  'OLLAMA_USER_PROMPT': '''Your only task is to fix:
 
-<the corrected joke text here, preserving all paragraphs and line breaks>
+* Spelling
+* Grammar
+* Punctuation
+* Minor clarity issues caused strictly by grammar errors
 
-<joke>
+Rules:
+
+1. Keep the exact meaning.
+2. Do NOT change tone.
+3. Do NOT rewrite for style.
+4. Do NOT rephrase sentences unless required to fix grammar.
+5. Do NOT add ideas.
+6. Do NOT remove ideas.
+7. Do NOT make the text more formal or more casual.
+8. Preserve all paragraph breaks and line breaks exactly.
+9. Do NOT use markdown.
+10. Do NOT use em dashes.
+11. If a sentence is grammatically correct, leave it unchanged.
+
+Important:
+
+* Make the minimum number of edits required.
+* If no corrections are needed, return the text exactly as provided.
+
+Output format (must match exactly):
+
+Confidence: <0-100>
+Changes: <brief description of what changed, or None>
+
+<corrected text here, preserving original structure exactly>
+
+Text to correct:
 {content}
-</joke>''',
-  'OLLAMA_KEEP_ALIVE': '1m',
+''',
+  'OLLAMA_KEEP_ALIVE': 0,#1m
   'OLLAMA_OPTIONS': {
-    'temperature': 0.4,
+    'temperature': 0.0,
     'num_ctx': 65536,
-    'repeat_penalty': 1.1,
-    'top_k': 15,
-    'top_p': 0.7,
+    'repeat_penalty': 1.0,
+    'top_k': 1,
+    'top_p': 1.0,
     'min_p': 0.0,
-    'repeat_last_n': 64,
+    'repeat_last_n': 0,
   }
 }
+
 
 # Ollama LLM Configuration - Categorization
 OLLAMA_CATEGORIZATION = {
-  'OLLAMA_MODEL': 'llama3.1:8b', # qwen3:8b, gemma3:4b
-  'OLLAMA_SYSTEM_PROMPT': 'You are a joke categorization expert. No markdown formatting',
-  'OLLAMA_USER_PROMPT': '''Categorize this joke into as many categories you can come up with, sorted with the best ones first
-- Give a confidence score of 0-100
-- If status is FAIL, give a reason; otherwise leave reason blank
-- Respond ONLY with valid JSON in this exact format:
-{{"categories": ["Category1", "Category2"], "confidence": 0, "reason": "brief explanation"}}
+  'OLLAMA_MODEL': 'mistral-nemo:12b', # qwen3:8b, gemma3:4b
+  'OLLAMA_SYSTEM_PROMPT': 'You are a strict multi-label classifier.',
+  'OLLAMA_USER_PROMPT': '''TASK:
+Select one or more categories from the <categories> list that best match the joke.
 
-<joke>
+RULES:
+- You MUST select at least one category.
+- You MUST use ONLY exact category names from the list.
+- Do NOT create, modify, or infer new category names.
+- If no perfect match exists, choose the closest reasonable match.
+- Sort selected categories from best match to weakest match.
+- Returning zero categories is an automatic FAIL.
+
+FAIL CONDITIONS:
+- Zero categories selected
+- Any category not in the provided list
+- Any deviation from the required JSON format
+
+OUTPUT:
+Return ONLY a single valid JSON object in this exact structure:
+
+{{"categories": ["Category1", "Category2"], "reason": "brief explanation" }}
+
+If you fail any rule, return:
+
+{{"categories": [], "reason": "FAIL"}}
+
+<categories>
+{categories_list}
+</categories>
+
+Joke:
 {content}
-</joke>''',
-  'OLLAMA_KEEP_ALIVE': '1m',
+''',
+  'OLLAMA_KEEP_ALIVE': 0,#1m
   'OLLAMA_OPTIONS': {
-    'temperature': 0.8,
+    'temperature': 0.1,
     'num_ctx': 65536,
     'repeat_penalty': 1.1,
-    'top_k': 40,
-    'top_p': 0.8,
-    'min_p': 0.0,
+    'top_k': 20,
+    'top_p': 0.9,
+    'min_p': 0.05,
     'repeat_last_n': 64,
   }
 }
 
+
 # Ollama LLM Configuration - Title Generation
 OLLAMA_TITLE_GENERATION = {
-  'OLLAMA_MODEL': 'gemma3:12b', # qwen3:8b, gemma3:4b
-  'OLLAMA_SYSTEM_PROMPT': 'You are a creative title writer for jokes. No markdown formatting',
-  'OLLAMA_USER_PROMPT': '''Create a short, catchy title for this joke:
-- Give a confidence score of 0-100
-- Respond ONLY with valid JSON in this exact format:
-{{"title": "A Short Catchy Title", "confidence": 0}}
+  'OLLAMA_MODEL': 'qwen2.5:14b', # qwen3:8b, gemma3:4b
+  'OLLAMA_SYSTEM_PROMPT': 'You are an expert comedy headline writer specializing in dry, clever, and pun-based humor',
+  'OLLAMA_USER_PROMPT': '''Task: Create a punchy, thematic, fun title for the provided joke.
 
-<categories>
-{categories}
-</categories>
+Constraints:
+- Length: 2-8 words
+- Format: Title Case
+- Style: Relate specifically to the theme, irony or punchline
+- Negative Constraints: No quotation marks, no terminal punctuation, no generic fillers.
 
-<joke>
+Return ONLY valid JSON in this format:
+{{"title": "string", "reasoning": "string", "confidence": int (0-100)}}
+
+Joke:
 {content}
-</joke>''',
-  'OLLAMA_KEEP_ALIVE': '1m',
+''',
+  'OLLAMA_KEEP_ALIVE': 0,#1m
   'OLLAMA_OPTIONS': {
-    'temperature': 0.8,
+    'temperature': 0.7,
     'num_ctx': 65536,
-    'repeat_penalty': 1.1,
-    'top_k': 60,
+    'repeat_penalty': 1.05,
+    'top_k': 50,
     'top_p': 0.9,
-    'min_p': 0.0,
+    'min_p': 0.05,
     'repeat_last_n': 64,
   }
 }
 
 # Logging
 LOG_DIR = os.path.join(os.path.dirname(__file__), "logs")
-LOG_LEVEL = "INFO"
+LOG_LEVEL = "WARNING"
 
 # Error Handling
 MAX_RETRIES = 1  # Retry twice (3 total attempts)
