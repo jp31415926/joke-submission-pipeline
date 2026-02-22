@@ -184,6 +184,7 @@ class CategorizeProcessor(StageProcessor):
         user_prompt,
         timeout=config.OLLAMA_TIMEOUT
       )
+      headers['Categorize-LLM-Model-Used'] = config.OLLAMA_CATEGORIZATION['OLLAMA_MODEL']
 
       # Parse JSON response
       try:
@@ -229,7 +230,6 @@ class CategorizeProcessor(StageProcessor):
       # Update headers
       headers['Categories'] = ', '.join(validated_categories)
       headers['Categorize-Reason'] = reason
-      headers['Categorize-LLM-Model-Used'] = config.OLLAMA_CATEGORIZATION['OLLAMA_MODEL']
 
       self.logger.info(
         f"{joke_id} Categorization: Categories={validated_categories}, Reason: {reason}"

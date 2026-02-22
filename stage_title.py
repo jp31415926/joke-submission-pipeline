@@ -143,6 +143,7 @@ class TitleProcessor(StageProcessor):
           user_prompt,
           timeout=config.OLLAMA_TIMEOUT
         )
+        headers['Title-LLM-Model-Used'] = config.OLLAMA_TITLE_GENERATION['OLLAMA_MODEL']
 
         # Parse JSON response
         try:
@@ -197,7 +198,6 @@ class TitleProcessor(StageProcessor):
         headers['Title'] = generated_title
         headers['Title-Source'] = 'LLM'
         headers['Title-Reason'] = reasoning
-        headers['Title-LLM-Model-Used'] = config.OLLAMA_TITLE_GENERATION['OLLAMA_MODEL']
 
       except Exception as e:
         # Handle LLM errors

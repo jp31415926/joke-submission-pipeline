@@ -72,6 +72,7 @@ class CleanCheckProcessor(StageProcessor):
         user_prompt,
         timeout=config.OLLAMA_TIMEOUT
       )
+      headers['Clean-Check-LLM-Model-Used'] = config.OLLAMA_CLEANLINESS_CHECK['OLLAMA_MODEL']
 
       # Parse JSON response
       try:
@@ -112,7 +113,6 @@ class CleanCheckProcessor(StageProcessor):
       headers['Cleanliness-Status'] = status
       headers['Cleanliness-Confidence'] = str(confidence)
       headers['Clean-Check-Reason'] = reason
-      headers['Clean-Check-LLM-Model-Used'] = config.OLLAMA_CLEANLINESS_CHECK['OLLAMA_MODEL']
 
       self.logger.info(
         f"{joke_id} Cleanliness check result: Status={status}, Confidence={confidence}"

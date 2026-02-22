@@ -106,6 +106,7 @@ class FormatProcessor(StageProcessor):
         user_prompt,
         timeout=config.OLLAMA_TIMEOUT
       )
+      headers['Format-LLM-Model-Used'] = config.OLLAMA_FORMATTING['OLLAMA_MODEL']
 
       self.logger.debug(f"{joke_id} response: {response_text.replace(chr(10), chr(92) + 'n')}")
 
@@ -138,7 +139,6 @@ class FormatProcessor(StageProcessor):
       headers['Format-Status'] = 'PASS'
       headers['Format-Confidence'] = str(confidence)
       headers['Format-Reason'] = changes
-      headers['Format-LLM-Model-Used'] = config.OLLAMA_FORMATTING['OLLAMA_MODEL']
 
       self.logger.info(
         f"{joke_id} Formatting result: Confidence={confidence}, Changes: {changes}"
