@@ -17,12 +17,12 @@ import config
 from logging_utils import setup_logging, get_logger
 from file_utils import parse_joke_file, atomic_write
 from ollama_server_pool import initialize_server_pool, get_server_pool
-from stage_incoming import IncomingProcessor
-from stage_parsed import ParsedProcessor
-from stage_deduped import DedupedProcessor
-from stage_clean_checked import CleanCheckedProcessor
-from stage_formatted import FormattedProcessor
-from stage_categorized import CategorizedProcessor
+from stage_parse import ParseProcessor
+from stage_dedup import DedupProcessor
+from stage_clean_check import CleanCheckProcessor
+from stage_format import FormatProcessor
+from stage_categorize import CategorizeProcessor
+from stage_title import TitleProcessor
 
 
 def get_directory_status(directory_path: str) -> Tuple[int, Optional[float]]:
@@ -39,9 +39,9 @@ def get_directory_status(directory_path: str) -> Tuple[int, Optional[float]]:
     return 0, None
 
   try:
-    # Check if this is incoming or rejected_parse (both contain .eml files)
+    # Check if this is parse or rejected_parse (both contain .eml files)
     # Otherwise look for .txt files
-    is_email_stage = (directory_path.endswith('01_incoming') or
+    is_email_stage = (directory_path.endswith('01_parse') or
                       directory_path.endswith('50_rejected_parse'))
 
     if is_email_stage:
@@ -244,12 +244,12 @@ def run_pipeline(pipeline_type: str = "both", stage_only: Optional[str] = None):
 
   # Define all stages in order
   all_stages = {
-    "incoming": IncomingProcessor,
-    "parsed": ParsedProcessor,
-    "deduped": DedupedProcessor,
-    "clean_checked": CleanCheckedProcessor,
-    "formatted": FormattedProcessor,
-    "categorized": CategorizedProcessor
+    "parse": ParseProcessor,
+    "dedup": DedupProcessor,
+    "clean_check": CleanCheckProcessor,
+    "format": FormatProcessor,
+    "categorize": CategorizeProcessor,
+    "title": TitleProcessor,
   }
 
   # Determine which stages to run
@@ -282,11 +282,11 @@ def run_pipeline(pipeline_type: str = "both", stage_only: Optional[str] = None):
 
 # Maps reject stage key -> stage the joke should re-enter for reprocessing
 RETRY_STAGE_MAP = {
-  'duplicate': config.STAGES['parsed'],
-  'cleanliness': config.STAGES['deduped'],
-  'format': config.STAGES['clean_checked'],
-  'category': config.STAGES['formatted'],
-  'titled': config.STAGES['categorized'],
+  'dedup': config.STAGES['dedup'],
+  'clean_check': config.STAGES['clean_check'],
+  'format': config.STAGES['format'],
+  'categorize': config.STAGES['categorize'],
+  'title': config.STAGES['title'],
 }
 
 
@@ -386,7 +386,7 @@ Examples:
   %(prog)s --pipeline priority
 
   # Run specific stage only
-  %(prog)s --stage parsed
+  %(prog)s --stage dedup
 
   # Run with verbose logging
   %(prog)s --verbose
@@ -398,22 +398,22 @@ Examples:
   %(prog)s --log-to-stdout
 
   # Retry rejected jokes
-  %(prog)s --retry --retry-pipeline main --retry-stage duplicate --ids <id1> <id2>
+  %(prog)s --retry main dedup <id1> <id2>
 
 Stages (in order):
-  incoming      - Extract jokes from emails
-  parsed        - Check for duplicates using TF-IDF
-  deduped       - Check cleanliness using LLM
-  clean_checked - Format jokes using LLM
-  formatted     - Categorize jokes using LLM
-  categorized   - Generate titles and final validation
+  parse       - Extract jokes from emails
+  dedup       - Check for duplicates using TF-IDF
+  clean_check - Check cleanliness using LLM
+  format      - Format jokes using LLM
+  categorize  - Categorize jokes using LLM
+  title       - Generate titles and final validation
 
 Retry stages (reject stage -> re-enters at):
-  duplicate     -> parsed (02_parsed)
-  cleanliness   -> deduped (03_deduped)
-  format        -> clean_checked (04_clean_checked)
-  category      -> formatted (05_formatted)
-  titled        -> categorized (06_categorized)
+  dedup       -> 02_dedup
+  clean_check -> 03_clean_check
+  format      -> 04_format
+  categorize  -> 05_categorize
+  title       -> 06_title
     """
   )
 
@@ -427,12 +427,12 @@ Retry stages (reject stage -> re-enters at):
   parser.add_argument(
     '--stage',
     choices=[
-      'incoming',
-      'parsed',
-      'deduped',
-      'clean_checked',
-      'formatted',
-      'categorized'
+      'parse',
+      'dedup',
+      'clean_check',
+      'format',
+      'categorize',
+      'title',
     ],
     help='Run specific stage only (optional)'
   )
@@ -462,34 +462,15 @@ Retry stages (reject stage -> re-enters at):
     help='Show pipeline status and exit (file counts, oldest files, etc.)'
   )
 
-  retry_group = parser.add_argument_group(
-    'retry',
-    'Move rejected jokes back to a stage for reprocessing'
-  )
-  retry_group.add_argument(
+  parser.add_argument(
     '--retry',
-    action='store_true',
-    help='Retry rejected jokes (requires --retry-pipeline, --retry-stage, --ids)'
-  )
-  retry_group.add_argument(
-    '--retry-pipeline',
-    choices=['main', 'priority'],
-    help='Pipeline containing the rejected jokes'
-  )
-  retry_group.add_argument(
-    '--retry-stage',
-    choices=list(RETRY_STAGE_MAP.keys()),
-    metavar='STAGE',
+    nargs=argparse.REMAINDER,
+    metavar='',
     help=(
-      'Reject stage to retry from: '
-      + ', '.join(RETRY_STAGE_MAP.keys())
+      'Retry rejected jokes: --retry <pipeline> <stage> <id1> [id2 ...]\n'
+      '  pipeline: main or priority\n'
+      '  stage: ' + ', '.join(RETRY_STAGE_MAP.keys())
     )
-  )
-  retry_group.add_argument(
-    '--ids',
-    nargs='+',
-    metavar='JOKE_ID',
-    help='One or more joke IDs to retry'
   )
 
   args = parser.parse_args()
@@ -500,18 +481,30 @@ Retry stages (reject stage -> re-enters at):
     sys.exit(0)
 
   # Handle --retry flag
-  if args.retry:
-    missing = []
-    if not args.retry_pipeline:
-      missing.append('--retry-pipeline')
-    if not args.retry_stage:
-      missing.append('--retry-stage')
-    if not args.ids:
-      missing.append('--ids')
-    if missing:
-      parser.error(f"--retry requires: {', '.join(missing)}")
+  if args.retry is not None:
+    retry_args = args.retry
+    if len(retry_args) < 3:
+      parser.error(
+        '--retry requires: --retry <pipeline> <stage> <id1> [id2 ...]\n'
+        '  pipeline: main or priority\n'
+        '  stage: ' + ', '.join(RETRY_STAGE_MAP.keys())
+      )
 
-    success = retry_jokes(args.retry_pipeline, args.retry_stage, args.ids)
+    pipeline = retry_args[0]
+    stage = retry_args[1]
+    joke_ids = retry_args[2:]
+
+    if pipeline not in ('main', 'priority'):
+      parser.error(
+        f"--retry pipeline must be 'main' or 'priority', got: '{pipeline}'"
+      )
+    valid_stages = list(RETRY_STAGE_MAP.keys())
+    if stage not in valid_stages:
+      parser.error(
+        f"--retry stage must be one of: {', '.join(valid_stages)}, got: '{stage}'"
+      )
+
+    success = retry_jokes(pipeline, stage, joke_ids)
     sys.exit(0 if success else 1)
 
   # Setup logging

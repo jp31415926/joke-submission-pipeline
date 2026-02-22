@@ -26,24 +26,23 @@ def test_required_constants_present():
     # STAGES dictionary
     assert hasattr(config, 'STAGES')
     assert isinstance(config.STAGES, dict)
-    assert 'incoming' in config.STAGES
-    assert 'parsed' in config.STAGES
-    assert 'deduped' in config.STAGES
-    assert 'clean_checked' in config.STAGES
-    assert 'formatted' in config.STAGES
-    assert 'categorized' in config.STAGES
+    assert 'parse' in config.STAGES
+    assert 'dedup' in config.STAGES
+    assert 'clean_check' in config.STAGES
+    assert 'format' in config.STAGES
+    assert 'categorize' in config.STAGES
+    assert 'title' in config.STAGES
     assert 'ready_for_review' in config.STAGES
-    # Note: 'titled' was removed - stages 6 and 7 are combined in categorized
-    
+
     # REJECTS dictionary
     assert hasattr(config, 'REJECTS')
     assert isinstance(config.REJECTS, dict)
     assert 'parse' in config.REJECTS
-    assert 'duplicate' in config.REJECTS
-    assert 'cleanliness' in config.REJECTS
+    assert 'dedup' in config.REJECTS
+    assert 'clean_check' in config.REJECTS
     assert 'format' in config.REJECTS
-    assert 'category' in config.REJECTS
-    assert 'titled' in config.REJECTS
+    assert 'categorize' in config.REJECTS
+    assert 'title' in config.REJECTS
     
     # Script paths
     assert hasattr(config, 'JOKE_EXTRACTOR')

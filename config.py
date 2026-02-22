@@ -10,22 +10,22 @@ PIPELINE_MAIN = os.path.join(os.path.dirname(__file__), "pipeline-main")
 PIPELINE_PRIORITY = os.path.join(os.path.dirname(__file__), "pipeline-priority")
 
 STAGES = {
-    "incoming": "01_incoming",
-    "parsed": "02_parsed",
-    "deduped": "03_deduped",
-    "clean_checked": "04_clean_checked",
-    "formatted": "05_formatted",
-    "categorized": "06_categorized",
+    "parse": "01_parse",
+    "dedup": "02_dedup",
+    "clean_check": "03_clean_check",
+    "format": "04_format",
+    "categorize": "05_categorize",
+    "title": "06_title",
     "ready_for_review": "08_ready_for_review",
 }
 
 REJECTS = {
     "parse": "50_rejected_parse",
-    "duplicate": "51_rejected_duplicate",
-    "cleanliness": "52_rejected_cleanliness",
+    "dedup": "51_rejected_dedup",
+    "clean_check": "52_rejected_clean_check",
     "format": "53_rejected_format",
-    "category": "54_rejected_category",
-    "titled": "55_rejected_titled",
+    "categorize": "54_rejected_categorize",
+    "title": "55_rejected_title",
 }
 
 # Script paths
