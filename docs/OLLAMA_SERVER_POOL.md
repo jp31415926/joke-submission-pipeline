@@ -112,7 +112,7 @@ The pipeline automatically initializes the server pool:
 ./joke-pipeline.py
 
 # Run specific stage (also uses server pool)
-./stage_deduped.py
+./stage_clean_check.py
 ```
 
 ### Cron Jobs
@@ -121,9 +121,9 @@ You can run multiple stages in parallel via cron:
 
 ```cron
 # Run different stages every 5 minutes
-*/5 * * * * cd /path/to/pipeline && ./stage_deduped.py >> logs/cron-deduped.log 2>&1
-*/5 * * * * cd /path/to/pipeline && ./stage_clean_checked.py >> logs/cron-clean_checked.log 2>&1
-*/5 * * * * cd /path/to/pipeline && ./stage_formatted.py >> logs/cron-formatted.log 2>&1
+*/5 * * * * cd /path/to/pipeline && ./stage_clean_check.py >> logs/cron-clean_check.log 2>&1
+*/5 * * * * cd /path/to/pipeline && ./stage_format.py >> logs/cron-format.log 2>&1
+*/5 * * * * cd /path/to/pipeline && ./stage_categorize.py >> logs/cron-categorize.log 2>&1
 ```
 
 The server pool ensures they don't overwhelm the Ollama servers.
@@ -139,10 +139,10 @@ The server pool ensures they don't overwhelm the Ollama servers.
 - `config.py` - Added server pool configuration, removed `OLLAMA_API_URL` from stage configs
 - `ollama_client.py` - Updated to use server pool instead of fixed URL
 - `joke-pipeline.py` - Initialize server pool and signal handlers
-- `stage_deduped.py` - Initialize environment in __main__
-- `stage_clean_checked.py` - Initialize environment in __main__
-- `stage_formatted.py` - Initialize environment in __main__
-- `stage_categorized.py` - Initialize environment in __main__
+- `stage_clean_check.py` - Initialize environment in __main__
+- `stage_format.py` - Initialize environment in __main__
+- `stage_categorize.py` - Initialize environment in __main__
+- `stage_title.py` - Initialize environment in __main__
 
 ## Monitoring
 
