@@ -398,15 +398,6 @@ Stages (in order):
   logger = get_logger("Main")
   logger.debug(f"Joke Pipeline starting with arguments: {vars(args)}")
 
-  # Check for and remove ALL_STOP file if it exists
-  if os.path.exists(config.ALL_STOP):
-    logger.info(f"Removing ALL_STOP file at {config.ALL_STOP}")
-    try:
-      os.remove(config.ALL_STOP)
-      logger.debug(f"{config.ALL_STOP} file removed successfully")
-    except Exception as e:
-      logger.warning(f"Failed to remove ALL_STOP file: {e}")
-
   # Initialize Ollama server pool
   logger.debug("Initializing Ollama server pool")
   initialize_server_pool(

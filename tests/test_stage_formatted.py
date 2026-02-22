@@ -39,10 +39,6 @@ def setup_test_environment():
   config.PIPELINE_MAIN = pipeline_main
   config.PIPELINE_PRIORITY = pipeline_priority
 
-  # Remove ALL_STOP if present so it doesn't interfere with tests
-  if os.path.exists(config.ALL_STOP):
-    os.remove(config.ALL_STOP)
-
   yield {
     'test_dir': test_dir,
     'pipeline_main': pipeline_main,

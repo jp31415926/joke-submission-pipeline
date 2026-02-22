@@ -10,6 +10,7 @@ import pytest
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import config
 from ollama_server_pool import initialize_server_pool
 
 
@@ -37,3 +38,16 @@ def setup_server_pool(tmp_path_factory):
   yield
 
   # Cleanup is automatic via tmp_path_factory
+
+
+@pytest.fixture(scope="function", autouse=True)
+def cleanup_all_stop():
+  """
+  Remove ALL_STOP file before each test to prevent interference.
+
+  Tests that need ALL_STOP behavior redirect config.ALL_STOP to a
+  temp path, so this fixture only removes the real project-level file.
+  """
+  if os.path.exists(config.ALL_STOP):
+    os.remove(config.ALL_STOP)
+  yield

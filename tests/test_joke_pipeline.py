@@ -561,40 +561,6 @@ def test_command_line_status(setup_full_pipeline):
   assert 'Pipeline Status' in result.stdout or 'Stage' in result.stdout
 
 
-def test_all_stop_file_deleted_on_startup(setup_full_pipeline):
-  """Test that ALL_STOP file is deleted when pipeline starts."""
-  env = setup_full_pipeline
-
-  # Save original ALL_STOP path
-  original_all_stop = config.ALL_STOP
-
-  try:
-    # Create a temporary ALL_STOP file
-    test_all_stop = os.path.join(env['test_dir'], 'ALL_STOP')
-    config.ALL_STOP = test_all_stop
-
-    # Create the ALL_STOP file
-    with open(test_all_stop, 'w') as f:
-      f.write('stop')
-
-    assert os.path.exists(test_all_stop)
-
-    # Import and run pipeline
-    pipeline_module = import_joke_pipeline()
-
-    # Mock the run_pipeline function to prevent actual execution
-    with patch.object(pipeline_module, 'run_pipeline', return_value=True):
-      # Simulate what main() does
-      if os.path.exists(config.ALL_STOP):
-        os.remove(config.ALL_STOP)
-
-    # ALL_STOP file should be deleted
-    assert not os.path.exists(test_all_stop)
-
-  finally:
-    # Restore original ALL_STOP path
-    config.ALL_STOP = original_all_stop
-
 
 def test_stage_processor_stops_on_all_stop(setup_full_pipeline):
   """Test that stage processor stops when ALL_STOP file is created."""
