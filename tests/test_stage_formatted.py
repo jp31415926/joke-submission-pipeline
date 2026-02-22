@@ -115,10 +115,9 @@ def mock_ollama_invalid_category():
     mock_client.system_prompt = 'You are a joke categorizer.'
     mock_client.user_prompt_template = 'Categorize: {content}'
     import json as json_lib
-    mock_client.generate.return_value = json_lib.dumps({"categories": ["InvalidCategory"], "confidence": 85, "reason": "This is not a valid category"})
+    mock_client.generate.return_value = json_lib.dumps({"categories": ["ZZZZZ_INVALID"], "reason": "This is not a valid category"})
     mock_client.parse_structured_response.return_value = {
-      'categories': ['InvalidCategory'],
-      'confidence': '85',
+      'categories': ['ZZZZZ_INVALID'],
       'reason': 'This is not a valid category'
     }
     mock_client.extract_confidence.return_value = 85
@@ -314,18 +313,15 @@ def test_some_invalid_categories_filtered(setup_test_environment):
     mock_client = Mock()
     mock_client.system_prompt = 'You are a joke categorizer.'
     mock_client.user_prompt_template = 'Categorize: {content}'
-    # Animals and Food are valid; FakeCategory and NotReal are not
+    # Animals and Food are valid; ZZZZFAKE and QQQNOREAL are unmatchable
     mock_client.generate.return_value = json.dumps({
-      "categories": ["Animals", "FakeCategory", "Food", "NotReal"],
-      "confidence": 85,
+      "categories": ["Animals", "ZZZZFAKE", "Food", "QQQNOREAL"],
       "reason": "Mix of valid and invalid"
     })
     mock_client.parse_structured_response.return_value = {
-      'categories': ['Animals', 'FakeCategory', 'Food', 'NotReal'],
-      'confidence': '85',
+      'categories': ['Animals', 'ZZZZFAKE', 'Food', 'QQQNOREAL'],
       'reason': 'Mix of valid and invalid'
     }
-    mock_client.extract_confidence.return_value = 85
     mock_client_class.return_value = mock_client
 
     source_joke = os.path.join(
@@ -516,6 +512,172 @@ def test_case_insensitive_category_matching(setup_test_environment):
     # Verify category was normalized to canonical form
     headers, content = parse_joke_file(output_file)
     assert headers['Categories'] == 'Pun'  # Canonical capitalization
+
+
+def test_near_match_strip_jokes_suffix(setup_test_environment):
+  """Test near-match: strip trailing 'jokes' from LLM category."""
+  env = setup_test_environment
+
+  with patch('stage_formatted.OllamaClient') as mock_client_class:
+    mock_client = Mock()
+    mock_client.system_prompt = 'You are a joke categorizer.'
+    mock_client.user_prompt_template = 'Categorize: {content}'
+    # "Animal Jokes" should near-match "Animals" (strip 'jokes' -> 'Animal' -> 'Animals')
+    # Actually "animal" after stripping -> check: is "animal" in valid_categories_lower?
+    # "Animals" is valid, lower is "animals" not "animal"
+    # Let's use "Pun Jokes" -> strip -> "Pun" -> exact match "Pun"
+    mock_client.generate.return_value = json.dumps({
+      "categories": ["Pun Jokes"],
+      "reason": "Testing jokes suffix stripping"
+    })
+    mock_client_class.return_value = mock_client
+
+    source_joke = os.path.join(
+      os.path.dirname(__file__), 'fixtures', 'jokes', 'pun_joke.txt'
+    )
+    shutil.copy(source_joke, os.path.join(env['input_dir'], 'pun_joke.txt'))
+
+    processor = FormattedProcessor()
+    processor.run()
+
+    output_file = os.path.join(env['output_dir'], 'pun_joke.txt')
+    assert os.path.exists(output_file), "Near-match via jokes-strip should succeed"
+    headers, _ = parse_joke_file(output_file)
+    assert headers['Categories'] == 'Pun'
+
+
+def test_near_match_llm_cat_substring_of_allowed(setup_test_environment):
+  """Test near-match: LLM category is a substring of an ALLOWED_CAT."""
+  env = setup_test_environment
+
+  with patch('stage_formatted.OllamaClient') as mock_client_class:
+    mock_client = Mock()
+    mock_client.system_prompt = 'You are a joke categorizer.'
+    mock_client.user_prompt_template = 'Categorize: {content}'
+    # "Knock" is not valid but is a substring of "Knock-Knock" (valid).
+    mock_client.generate.return_value = json.dumps({
+      "categories": ["Knock"],
+      "reason": "Testing substring match"
+    })
+    mock_client_class.return_value = mock_client
+
+    source_joke = os.path.join(
+      os.path.dirname(__file__), 'fixtures', 'jokes', 'pun_joke.txt'
+    )
+    shutil.copy(source_joke, os.path.join(env['input_dir'], 'pun_joke.txt'))
+
+    processor = FormattedProcessor()
+    processor.run()
+
+    output_file = os.path.join(env['output_dir'], 'pun_joke.txt')
+    assert os.path.exists(output_file), "Near-match via substring should succeed"
+    headers, _ = parse_joke_file(output_file)
+    # "Knock" is a substring of "Knock-Knock" (only match)
+    assert headers['Categories'] == 'Knock-Knock'
+
+
+def test_near_match_allowed_cat_substring_of_llm(setup_test_environment):
+  """Test near-match: an ALLOWED_CAT is a substring of the LLM category."""
+  env = setup_test_environment
+
+  with patch('stage_formatted.OllamaClient') as mock_client_class:
+    mock_client = Mock()
+    mock_client.system_prompt = 'You are a joke categorizer.'
+    mock_client.user_prompt_template = 'Categorize: {content}'
+    # "Pun Humor" is not valid; "Pun" (valid) is a substring of "pun humor"
+    mock_client.generate.return_value = json.dumps({
+      "categories": ["Pun Humor"],
+      "reason": "Testing allowed-as-substring match"
+    })
+    mock_client_class.return_value = mock_client
+
+    source_joke = os.path.join(
+      os.path.dirname(__file__), 'fixtures', 'jokes', 'pun_joke.txt'
+    )
+    shutil.copy(source_joke, os.path.join(env['input_dir'], 'pun_joke.txt'))
+
+    processor = FormattedProcessor()
+    processor.run()
+
+    output_file = os.path.join(env['output_dir'], 'pun_joke.txt')
+    assert os.path.exists(output_file), "Near-match via allowed-as-substring should succeed"
+    headers, _ = parse_joke_file(output_file)
+    assert headers['Categories'] == 'Pun'
+
+
+def test_near_match_goes_after_exact_matches(setup_test_environment):
+  """Test that near-matches are appended after exact matches in the result."""
+  env = setup_test_environment
+
+  with patch('stage_formatted.OllamaClient') as mock_client_class:
+    mock_client = Mock()
+    mock_client.system_prompt = 'You are a joke categorizer.'
+    mock_client.user_prompt_template = 'Categorize: {content}'
+    # "Pun" is exact; "Pun Jokes" near-matches "Pun" via jokes-strip (dup, but still appended)
+    # Use "Animals" (exact) + "Pun Jokes" (near -> "Pun")
+    mock_client.generate.return_value = json.dumps({
+      "categories": ["Animals", "Pun Jokes"],
+      "reason": "Testing ordering"
+    })
+    mock_client_class.return_value = mock_client
+
+    source_joke = os.path.join(
+      os.path.dirname(__file__), 'fixtures', 'jokes', 'animal_pun.txt'
+    )
+    shutil.copy(source_joke, os.path.join(env['input_dir'], 'animal_pun.txt'))
+
+    processor = FormattedProcessor()
+    processor.run()
+
+    output_file = os.path.join(env['output_dir'], 'animal_pun.txt')
+    assert os.path.exists(output_file)
+    headers, _ = parse_joke_file(output_file)
+    categories = [c.strip() for c in headers['Categories'].split(',')]
+    # Animals (exact) should come before Pun (near-match)
+    assert categories[0] == 'Animals'
+    assert categories[1] == 'Pun'
+
+
+def test_near_matches_dropped_first_when_too_many(setup_test_environment):
+  """Test that near-matches are dropped before exact matches when over MAX."""
+  env = setup_test_environment
+
+  with patch('stage_formatted.OllamaClient') as mock_client_class:
+    mock_client = Mock()
+    mock_client.system_prompt = 'You are a joke categorizer.'
+    mock_client.user_prompt_template = 'Categorize: {content}'
+    # Fill up with exact matches, then add near-matches that should be dropped
+    # MAX_CATEGORIES_PER_JOKE is 10; give 9 exact + 2 near-matches
+    exact = [
+      "Animals", "Pun", "Food", "Technology", "Sports",
+      "Music", "Movie", "Science", "Travel"
+    ]
+    # "Pun Jokes" near-matches "Pun", "History Jokes" near-matches "History"
+    near = ["Pun Jokes", "History Jokes"]
+    mock_client.generate.return_value = json.dumps({
+      "categories": exact + near,
+      "reason": "Testing near-match truncation"
+    })
+    mock_client_class.return_value = mock_client
+
+    source_joke = os.path.join(
+      os.path.dirname(__file__), 'fixtures', 'jokes', 'animal_pun.txt'
+    )
+    shutil.copy(source_joke, os.path.join(env['input_dir'], 'animal_pun.txt'))
+
+    processor = FormattedProcessor()
+    processor.run()
+
+    output_file = os.path.join(env['output_dir'], 'animal_pun.txt')
+    assert os.path.exists(output_file)
+    headers, _ = parse_joke_file(output_file)
+    categories = [c.strip() for c in headers['Categories'].split(',')]
+    # Should have exactly MAX categories, all from exact list
+    assert len(categories) == joke_categories.MAX_CATEGORIES_PER_JOKE
+    for cat in exact:
+      assert cat in categories, f"Exact match '{cat}' should be in result"
+    # Near-match "Pun" may already be in exact list; "History" should be dropped
+    assert 'History' not in categories
 
 
 def test_llm_error_handling(setup_test_environment):
