@@ -36,11 +36,13 @@ nemo
 ngram
 nolist
 nomargins
+nomic
 nonblank
 nonumbers
 nounderline
 numpy
 Pepito
+PREFILTER
 pycache
 pytest
 reinjection
