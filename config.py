@@ -48,7 +48,7 @@ OLLAMA_COMMON_KEEP_ALIVE=0 # Ollama keep alive timeout: 0 or duration like "1m"
 OLLAMA_SERVERS = [
   {"url": "http://localhost:11434", "max_concurrent": 1},
   # Add more servers as needed:
-  {"url": "http://192.168.99.50:11434", "max_concurrent": 1},
+  #{"url": "http://192.168.99.50:11434", "max_concurrent": 1},
   #{"url": "http://192.168.99.69:11434", "max_concurrent": 1},
 ]
 
@@ -100,9 +100,9 @@ OUTPUT RULES:
 
 Do NOT include any text outside the JSON.
 
-Joke:
+<joke>
 {content}
-''',
+</joke>''',
   'OLLAMA_KEEP_ALIVE': OLLAMA_COMMON_KEEP_ALIVE,
   'OLLAMA_OPTIONS': {
     'temperature': 0.2,
@@ -176,7 +176,7 @@ OLLAMA_CATEGORIZATION = {
   'OLLAMA_MODEL': 'mistral-nemo:12b', # qwen3:8b, gemma3:4b
   'OLLAMA_SYSTEM_PROMPT': 'You are an English-speaking strict multi-label classifier.',
   'OLLAMA_USER_PROMPT': '''TASK:
-Select one or more categories from the <categories> list that best match the joke.
+Select 1-10 categories from the <categories> list that best match the joke.
 
 RULES:
 - You MUST select at least one category.
@@ -193,20 +193,18 @@ FAIL CONDITIONS:
 
 OUTPUT:
 Return ONLY a single valid JSON object in this exact structure:
-
-{{"categories": ["Category1", "Category2"], "reason": "brief explanation" }}
+{{"categories": ["Category1", "Category2"], "reason": "brief explanation"}}
 
 If you fail any rule, return:
-
 {{"categories": [], "reason": "FAIL"}}
 
 <categories>
 {categories_list}
 </categories>
 
-Joke:
+<joke>
 {content}
-''',
+</joke>''',
   'OLLAMA_KEEP_ALIVE': OLLAMA_COMMON_KEEP_ALIVE,
   'OLLAMA_OPTIONS': {
     'temperature': 0.1,
@@ -221,18 +219,20 @@ Joke:
 
 
 # Categorization embedding pre-filter
-CATEGORIZE_EMBED_MODEL = "nomic-embed-text"   # embedding model for pre-filtering
-CATEGORIZE_PREFILTER_TOP_N = 75               # categories passed to LLM after filtering
+# CATEGORIZE_EMBED_MODEL = "nomic-embed-text"   # embedding model for pre-filtering
+#CATEGORIZE_EMBED_MODEL = "qwen3-embedding:4b"   # embedding model for pre-filtering
+CATEGORIZE_EMBED_MODEL = "qwen3-embedding:0.6b"   # embedding model for pre-filtering
+CATEGORIZE_PREFILTER_TOP_N = 100              # categories passed to LLM after filtering
 
 
 # Ollama LLM Configuration - Title Generation
 OLLAMA_TITLE_GENERATION = {
   'OLLAMA_MODEL': 'qwen2.5:14b', # qwen3:8b, gemma3:4b
-  'OLLAMA_SYSTEM_PROMPT': 'You are an English-speaking expert comedy headline writer specializing in dry, clever, and pun-based humor',
-  'OLLAMA_USER_PROMPT': '''Task: Create a punchy, thematic, fun title for the provided joke.
+  'OLLAMA_SYSTEM_PROMPT': 'You are an English-speaking expert creative comedy editor',
+  'OLLAMA_USER_PROMPT': '''Task: Create a short, catchy, fun title for the provided joke.
 
 Constraints:
-- Length: 2-8 words
+- Length: 2-10 words
 - Format: Title Case
 - Style: Relate specifically to the theme, irony or punchline
 - Negative Constraints: No quotation marks, no terminal punctuation, no generic fillers.
@@ -240,9 +240,9 @@ Constraints:
 Return ONLY valid JSON in this format:
 {{"title": "string", "reasoning": "string", "confidence": int (0-100)}}
 
-Joke:
+<joke>
 {content}
-''',
+<joke>''',
   'OLLAMA_KEEP_ALIVE': OLLAMA_COMMON_KEEP_ALIVE,
   'OLLAMA_OPTIONS': {
     'temperature': 0.7,
