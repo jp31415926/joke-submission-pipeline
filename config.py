@@ -220,6 +220,11 @@ Joke:
 }
 
 
+# Categorization embedding pre-filter
+CATEGORIZE_EMBED_MODEL = "nomic-embed-text"   # embedding model for pre-filtering
+CATEGORIZE_PREFILTER_TOP_N = 75               # categories passed to LLM after filtering
+
+
 # Ollama LLM Configuration - Title Generation
 OLLAMA_TITLE_GENERATION = {
   'OLLAMA_MODEL': 'qwen2.5:14b', # qwen3:8b, gemma3:4b

@@ -9,7 +9,8 @@ import shutil
 import tempfile
 import pytest
 import json
-from unittest.mock import Mock, patch
+import numpy as np
+from unittest.mock import Mock, patch, MagicMock
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -757,3 +758,167 @@ Reasoning: Could not categorize
     # Verify rejection reason
     headers, content = parse_joke_file(reject_file)
     assert 'Rejection-Reason' in headers
+
+
+# ---------------------------------------------------------------------------
+# Embedding pre-filter tests
+# ---------------------------------------------------------------------------
+
+def _make_fake_embeddings(n: int, dim: int = 8) -> list:
+  """Return n fake embedding vectors (lists of floats) of the given dimension."""
+  rng = np.random.default_rng(42)
+  return rng.standard_normal((n, dim)).tolist()
+
+
+def test_prefilter_embeddings_computed_on_init():
+  """__init__ pre-computes _category_embeddings as a numpy array when embed succeeds."""
+  n_cats = len(joke_categories.VALID_CATEGORIES)
+  dim = 8
+  fake_embeddings = _make_fake_embeddings(n_cats, dim)
+
+  with patch('stage_categorize.OllamaClient') as mock_client_class:
+    mock_client = Mock()
+    mock_client_class.return_value = mock_client
+    mock_client_class.embed.return_value = fake_embeddings
+
+    processor = CategorizeProcessor()
+
+  assert processor._category_embeddings is not None
+  assert isinstance(processor._category_embeddings, np.ndarray)
+  assert processor._category_embeddings.shape == (n_cats, dim)
+
+
+def test_prefilter_embeddings_none_when_embed_raises():
+  """__init__ sets _category_embeddings to None when the embed call fails."""
+  with patch('stage_categorize.OllamaClient') as mock_client_class:
+    mock_client = Mock()
+    mock_client_class.return_value = mock_client
+    mock_client_class.embed.side_effect = Exception("connection refused")
+
+    processor = CategorizeProcessor()
+
+  assert processor._category_embeddings is None
+
+
+def test_prefilter_categories_returns_top_n():
+  """_prefilter_categories returns at most prefilter_top_n items."""
+  n_cats = len(joke_categories.VALID_CATEGORIES)
+  dim = 16
+  fake_cat_embeddings = _make_fake_embeddings(n_cats, dim)
+  fake_joke_embedding = _make_fake_embeddings(1, dim)
+
+  with patch('stage_categorize.OllamaClient') as mock_client_class:
+    mock_client = Mock()
+    mock_client_class.return_value = mock_client
+    # First embed call (init) returns category embeddings
+    mock_client_class.embed.side_effect = [
+      fake_cat_embeddings,
+      fake_joke_embedding,
+    ]
+
+    processor = CategorizeProcessor()
+    result = processor._prefilter_categories("Why did the doctor laugh?", "test-id")
+
+  assert len(result) == processor.prefilter_top_n
+
+
+def test_prefilter_categories_all_from_valid_categories():
+  """All items returned by _prefilter_categories are members of VALID_CATEGORIES."""
+  n_cats = len(joke_categories.VALID_CATEGORIES)
+  dim = 16
+  fake_cat_embeddings = _make_fake_embeddings(n_cats, dim)
+  fake_joke_embedding = _make_fake_embeddings(1, dim)
+
+  with patch('stage_categorize.OllamaClient') as mock_client_class:
+    mock_client = Mock()
+    mock_client_class.return_value = mock_client
+    mock_client_class.embed.side_effect = [
+      fake_cat_embeddings,
+      fake_joke_embedding,
+    ]
+
+    processor = CategorizeProcessor()
+    result = processor._prefilter_categories("Some joke text here.", "test-id")
+
+  for cat in result:
+    assert cat in joke_categories.VALID_CATEGORIES
+
+
+def test_prefilter_categories_fallback_on_embed_exception():
+  """_prefilter_categories falls back to the full list when embed raises during per-joke call."""
+  n_cats = len(joke_categories.VALID_CATEGORIES)
+  dim = 8
+  fake_cat_embeddings = _make_fake_embeddings(n_cats, dim)
+
+  with patch('stage_categorize.OllamaClient') as mock_client_class:
+    mock_client = Mock()
+    mock_client_class.return_value = mock_client
+    # Init succeeds, per-joke embed fails
+    mock_client_class.embed.side_effect = [
+      fake_cat_embeddings,
+      Exception("timeout"),
+    ]
+
+    processor = CategorizeProcessor()
+    result = processor._prefilter_categories("Some joke.", "test-id")
+
+  assert result == joke_categories.VALID_CATEGORIES
+
+
+def test_prefilter_categories_fallback_when_embeddings_none():
+  """_prefilter_categories returns the full list when _category_embeddings is None."""
+  with patch('stage_categorize.OllamaClient') as mock_client_class:
+    mock_client = Mock()
+    mock_client_class.return_value = mock_client
+    mock_client_class.embed.side_effect = Exception("server down")
+
+    processor = CategorizeProcessor()
+    assert processor._category_embeddings is None
+    result = processor._prefilter_categories("Any joke.", "test-id")
+
+  assert result == joke_categories.VALID_CATEGORIES
+
+
+def test_process_file_uses_prefiltered_categories(setup_test_environment):
+  """process_file passes the pre-filtered (smaller) category list to the LLM prompt."""
+  env = setup_test_environment
+  n_cats = len(joke_categories.VALID_CATEGORIES)
+  dim = 8
+  fake_cat_embeddings = _make_fake_embeddings(n_cats, dim)
+  fake_joke_embedding = _make_fake_embeddings(1, dim)
+
+  with patch('stage_categorize.OllamaClient') as mock_client_class:
+    mock_client = Mock()
+    mock_client_class.return_value = mock_client
+    # Capture the prompt to inspect later
+    captured_prompts = []
+
+    def fake_generate(system_prompt, user_prompt, timeout=None):
+      captured_prompts.append(user_prompt)
+      return json.dumps({"categories": ["Pun"], "reason": "wordplay"})
+
+    mock_client.generate.side_effect = fake_generate
+    mock_client.system_prompt = 'You are a categorizer.'
+    mock_client.user_prompt_template = '{categories_list}|{content}'
+
+    # Init: embed returns category embeddings; per-joke: returns joke embedding
+    mock_client_class.embed.side_effect = [
+      fake_cat_embeddings,
+      fake_joke_embedding,
+    ]
+
+    source_joke = os.path.join(
+      os.path.dirname(__file__), 'fixtures', 'jokes', 'pun_joke.txt'
+    )
+    shutil.copy(source_joke, os.path.join(env['input_dir'], 'pun_joke.txt'))
+
+    processor = CategorizeProcessor()
+    processor.run()
+
+  # The prompt should have been captured
+  assert len(captured_prompts) == 1
+  categories_part = captured_prompts[0].split('|')[0]
+  sent_categories = [c for c in categories_part.split(',') if c]
+  # Should have sent a subset, not the full list
+  assert len(sent_categories) == processor.prefilter_top_n
+  assert len(sent_categories) < n_cats

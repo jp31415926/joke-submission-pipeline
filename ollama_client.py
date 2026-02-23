@@ -6,7 +6,7 @@ Ollama LLM client for joke pipeline processing.
 import json
 import re
 import requests
-from typing import Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import config
 from logging_utils import get_logger
@@ -157,6 +157,39 @@ class OllamaClient:
     finally:
       # Always release the lock
       lock.release()
+
+  @staticmethod
+  def embed(
+    model: str,
+    texts: List[str],
+    server_url: str,
+    timeout: int = 120
+  ) -> List[List[float]]:
+    """
+    Embed a list of texts using Ollama's /api/embed endpoint.
+
+    Does NOT use the server pool locking mechanism — embedding calls are fast
+    and stateless, so concurrency locking is unnecessary overhead.
+
+    Args:
+      model: Name of the embedding model to use
+      texts: List of strings to embed
+      server_url: Base URL of the Ollama server
+      timeout: Request timeout in seconds
+
+    Returns:
+      List of embedding vectors (one per input text)
+
+    Raises:
+      requests.RequestException: On network errors or non-2xx HTTP responses
+    """
+    response = requests.post(
+      f"{server_url}/api/embed",
+      json={"model": model, "input": texts},
+      timeout=timeout,
+    )
+    response.raise_for_status()
+    return response.json()["embeddings"]
 
   def parse_structured_response(
     self,

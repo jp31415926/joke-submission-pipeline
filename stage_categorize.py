@@ -6,7 +6,9 @@ This stage uses Ollama LLM to assign 1-10 categories to jokes.
 """
 
 import json
-from typing import Tuple, Dict, List
+from typing import Tuple, Dict, List, Optional
+
+import numpy as np
 
 from stage_processor import StageProcessor
 from ollama_client import OllamaClient
@@ -38,6 +40,79 @@ class CategorizeProcessor(StageProcessor):
     )
     self.valid_categories = joke_categories.VALID_CATEGORIES
     self.max_categories = joke_categories.MAX_CATEGORIES_PER_JOKE
+
+    # Embedding pre-filter setup
+    self.prefilter_top_n = config.CATEGORIZE_PREFILTER_TOP_N
+    self._embed_model = config.CATEGORIZE_EMBED_MODEL
+    self._embed_server_url = config.OLLAMA_SERVERS[0]["url"]
+    self._category_embeddings: Optional[np.ndarray] = None  # shape (N, embed_dim)
+
+    try:
+      raw = OllamaClient.embed(
+        self._embed_model,
+        self.valid_categories,
+        self._embed_server_url,
+      )
+      if not isinstance(raw, list) or not raw or not isinstance(raw[0], list):
+        raise ValueError(f"Unexpected embedding response type: {type(raw)}")
+      self._category_embeddings = np.array(raw, dtype=np.float32)
+      self.logger.info(
+        f"Pre-computed embeddings for {len(self.valid_categories)} categories "
+        f"(shape: {self._category_embeddings.shape})"
+      )
+    except Exception as e:
+      self.logger.warning(
+        f"Could not pre-compute category embeddings, pre-filter disabled: {e}"
+      )
+
+  def _prefilter_categories(self, content: str, joke_id: str) -> List[str]:
+    """
+    Return the top-N most semantically similar categories for the given joke.
+
+    Uses cosine similarity between the joke embedding and pre-computed category
+    embeddings to narrow the candidate list before sending it to the LLM.
+    Falls back to the full valid_categories list if embeddings are unavailable
+    or the embed call fails.
+
+    Args:
+      content: Joke text to embed
+      joke_id: Joke ID for log messages
+
+    Returns:
+      List of category strings (at most prefilter_top_n items)
+    """
+    if self._category_embeddings is None:
+      return self.valid_categories
+
+    try:
+      raw = OllamaClient.embed(
+        self._embed_model, [content], self._embed_server_url
+      )
+      if not isinstance(raw, list) or not raw or not isinstance(raw[0], list):
+        raise ValueError(f"Unexpected joke embedding response type: {type(raw)}")
+      joke_vec = np.array(raw[0], dtype=np.float32)
+
+      # Cosine similarity: dot / (||cat|| * ||joke||)
+      dot = self._category_embeddings @ joke_vec
+      cat_norms = np.linalg.norm(self._category_embeddings, axis=1)
+      joke_norm = np.linalg.norm(joke_vec)
+      if joke_norm == 0 or np.any(cat_norms == 0):
+        return self.valid_categories
+      similarities = dot / (cat_norms * joke_norm)
+
+      top_indices = np.argsort(similarities)[::-1][:self.prefilter_top_n]
+      selected = [self.valid_categories[i] for i in top_indices]
+      self.logger.debug(
+        f"{joke_id} Pre-filter: {len(self.valid_categories)} -> "
+        f"{len(selected)} categories"
+      )
+      return selected
+
+    except Exception as e:
+      self.logger.warning(
+        f"{joke_id} Category pre-filter failed, using full list: {e}"
+      )
+      return self.valid_categories
 
   def _validate_categories(
     self,
@@ -171,7 +246,8 @@ class CategorizeProcessor(StageProcessor):
 
     # Construct prompts from config
     system_prompt = self.ollama_client.system_prompt
-    categories_list_str = ','.join(self.valid_categories)
+    candidate_categories = self._prefilter_categories(content, joke_id)
+    categories_list_str = ','.join(candidate_categories)
     user_prompt = self.ollama_client.user_prompt_template.format(
       categories_list=categories_list_str,
       content=content
