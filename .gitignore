@@ -4,6 +4,7 @@ jokematch2/data/*
 logs/
 pipeline-main/
 pipeline-priority/
+.vscode/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

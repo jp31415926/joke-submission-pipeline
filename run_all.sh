@@ -15,9 +15,9 @@ run_script() {
 # Clean up any old stop file
 rm -f $STOP_FILE
 
-run_script incoming &
-run_script parsed &
-run_script deduped &
-run_script clean_checked &
-run_script formatted &
-run_script categorized &
+run_script parse &
+run_script dedup &
+run_script clean_check &
+run_script format &
+run_script categorize &
+run_script title &

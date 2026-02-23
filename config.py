@@ -48,7 +48,7 @@ OLLAMA_COMMON_KEEP_ALIVE=0 # Ollama keep alive timeout: 0 or duration like "1m"
 OLLAMA_SERVERS = [
   {"url": "http://localhost:11434", "max_concurrent": 1},
   # Add more servers as needed:
-  #{"url": "http://192.168.99.50:11434", "max_concurrent": 1},
+  {"url": "http://192.168.99.50:11434", "max_concurrent": 1},
   #{"url": "http://192.168.99.69:11434", "max_concurrent": 1},
 ]
 
@@ -125,6 +125,9 @@ OLLAMA_FORMATTING = {
 * Grammar
 * Punctuation
 * Minor clarity issues caused strictly by grammar errors
+* Insert a blank line between paragraphs
+* Start a new paragraph every time a different speaker is quoted.
+* Use semicolons instead of em dashes
 
 Rules:
 
