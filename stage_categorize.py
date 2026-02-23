@@ -120,17 +120,10 @@ class CategorizeProcessor(StageProcessor):
     joke_id: str = "unknown"
   ) -> Tuple[bool, str, List[str]]:
     """
-    Validate and filter category list using exact and near-match logic.
+    Validate and filter category list using exact match only.
 
-    For each LLM category, attempts matching in this order:
-      1. Exact match (case-insensitive)
-      2. Strip trailing 'jokes' and retry exact match
-      3. LLM category is a substring of an ALLOWED_CAT (shortest match wins)
-      4. An ALLOWED_CAT is a substring of the LLM category (shortest match wins)
-      5. Discard with a warning
-
-    Near-matches (steps 2-4) are appended after exact matches so they are
-    dropped first when the list exceeds MAX_CATEGORIES_PER_JOKE.
+    For each LLM category, attempts an exact match (case-insensitive) against
+    VALID_CATEGORIES. Categories that do not match are discarded with a warning.
     Rejects only if no valid categories remain at all.
 
     Args:
@@ -145,59 +138,17 @@ class CategorizeProcessor(StageProcessor):
 
     valid_categories_lower = {cat.lower(): cat for cat in self.valid_categories}
 
-    exact_matches = []
-    near_matches = []
+    validated = []
     discarded = []
 
     for cat in categories:
       cat_stripped = cat.strip()
       cat_lower = cat_stripped.lower()
 
-      # Step 1: Exact match (case-insensitive)
       if cat_lower in valid_categories_lower:
-        exact_matches.append(valid_categories_lower[cat_lower])
-        continue
-
-      # Step 2: Strip trailing 'jokes' and retry exact match
-      if cat_lower.endswith('jokes'):
-        stripped = cat_lower[:-len('jokes')].strip()
-        if stripped in valid_categories_lower:
-          matched = valid_categories_lower[stripped]
-          near_matches.append(matched)
-          self.logger.info(
-            f"{joke_id} Near-match (stripped 'jokes'): "
-            f"'{cat_stripped}' -> '{matched}'"
-          )
-          continue
-
-      # Step 3: LLM category is substring of an ALLOWED_CAT
-      superstring_of = [
-        v for k, v in valid_categories_lower.items() if cat_lower in k
-      ]
-      if superstring_of:
-        matched = min(superstring_of, key=len)
-        near_matches.append(matched)
-        self.logger.info(
-          f"{joke_id} Near-match (substring of allowed): "
-          f"'{cat_stripped}' -> '{matched}'"
-        )
-        continue
-
-      # Step 4: An ALLOWED_CAT is a substring of the LLM category
-      substring_of = [
-        v for k, v in valid_categories_lower.items() if k in cat_lower
-      ]
-      if substring_of:
-        matched = min(substring_of, key=len)
-        near_matches.append(matched)
-        self.logger.info(
-          f"{joke_id} Near-match (allowed is substring): "
-          f"'{cat_stripped}' -> '{matched}'"
-        )
-        continue
-
-      # Step 5: Discard
-      discarded.append(cat_stripped)
+        validated.append(valid_categories_lower[cat_lower])
+      else:
+        discarded.append(cat_stripped)
 
     if discarded:
       self.logger.warning(
@@ -205,9 +156,6 @@ class CategorizeProcessor(StageProcessor):
         f"categor{'y' if len(discarded) == 1 else 'ies'} not in "
         f"VALID_CATEGORIES (discarded): {discarded}"
       )
-
-    # Exact matches first, near-matches at the end (dropped first if truncated)
-    validated = exact_matches + near_matches
 
     if not validated:
       return (False, "No valid categories after filtering", [])
