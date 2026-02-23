@@ -5,4 +5,6 @@ LDD stands for Left for Developer/Designer to Decide. In other words, I don't ca
 
 Completed items have been moved to `docs/COMPLETED-TODOS.md` for reference, if needed.
 
- 22. [ ] PLACEHOLDER. Update docs and tests.
+ 22. [x] Reverse TODO #14, located in `docs/COMPLETED-TODOS.md`. It does not work as well as I hoped. There are too many negative side effects.
+ 23. [x] Process the oldest files first in each stage directory.
+ 24. [ ] PLACEHOLDER. Update docs and tests.
