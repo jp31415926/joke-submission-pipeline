@@ -5,6 +5,7 @@ logs/
 pipeline-main/
 pipeline-priority/
 .vscode/
+locks/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
