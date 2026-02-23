@@ -80,29 +80,37 @@ class StageProcessor(ABC):
     
     def _process_files_in_directory(self, input_dir: str):
         """
-        Process all files in a given input directory.
+        Process all files in a given input directory, oldest first.
 
         Args:
             input_dir: Path to the input directory
         """
-        # Get all files in directory (recursively)
+        # Collect all eligible files with their modification times
+        file_entries: List[Tuple[float, str]] = []
         for root, dirs, files in os.walk(input_dir):
             # Skip tmp directories
             dirs[:] = [d for d in dirs if d != 'tmp']
 
-            # Process files in this directory
             for filename in files:
-                # Check for ALL_STOP file before processing each file
-                if os.path.exists(self.config.ALL_STOP):
-                    self.logger.warning(f"ALL_STOP file detected at {self.config.ALL_STOP}. Exiting gracefully.")
-                    return
-
                 if filename == '.DS_Store' or filename.startswith('.'):
-                    # Skip hidden or system files
                     continue
-
                 filepath = os.path.join(root, filename)
-                self._process_with_retry(filepath)
+                try:
+                    mtime = os.path.getmtime(filepath)
+                except OSError:
+                    mtime = 0.0
+                file_entries.append((mtime, filepath))
+
+        # Process oldest files first
+        file_entries.sort(key=lambda e: e[0])
+
+        for _, filepath in file_entries:
+            # Check for ALL_STOP file before processing each file
+            if os.path.exists(self.config.ALL_STOP):
+                self.logger.warning(f"ALL_STOP file detected at {self.config.ALL_STOP}. Exiting gracefully.")
+                return
+
+            self._process_with_retry(filepath)
     
     def _process_with_retry(self, filepath: str):
         """

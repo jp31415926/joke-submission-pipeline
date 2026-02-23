@@ -186,10 +186,67 @@ def test_mock_processor_retry_logic():
         assert processor is not None
 
 
+def test_oldest_files_processed_first():
+    """Test that _process_files_in_directory processes files oldest-first."""
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        config.PIPELINE_MAIN = temp_dir
+        config.PIPELINE_PRIORITY = temp_dir
+
+        input_dir = os.path.join(temp_dir, "incoming")
+        output_dir = os.path.join(temp_dir, "outgoing")
+        reject_dir = os.path.join(temp_dir, "rejected_test")
+        os.makedirs(input_dir)
+        os.makedirs(output_dir)
+        os.makedirs(reject_dir)
+
+        # Create three joke files and set distinct modification times
+        joke_content = (
+            "Joke-ID: {jid}\nTitle: Joke {n}\n"
+            "Submitter: test@example.com\nPipeline-Stage: incoming\n\n"
+            "Content {n}\n"
+        )
+
+        file_a = os.path.join(input_dir, "a.txt")
+        file_b = os.path.join(input_dir, "b.txt")
+        file_c = os.path.join(input_dir, "c.txt")
+
+        with open(file_a, 'w') as f:
+            f.write(joke_content.format(jid="aaa", n=1))
+        with open(file_b, 'w') as f:
+            f.write(joke_content.format(jid="bbb", n=2))
+        with open(file_c, 'w') as f:
+            f.write(joke_content.format(jid="ccc", n=3))
+
+        # Explicitly set mtimes: c oldest, then a, then b newest
+        os.utime(file_c, (1000.0, 1000.0))
+        os.utime(file_a, (2000.0, 2000.0))
+        os.utime(file_b, (3000.0, 3000.0))
+
+        processed_order = []
+
+        class OrderCapturingProcessor(StageProcessor):
+            def __init__(self):
+                super().__init__(
+                    "test", "incoming", "outgoing", "rejected_test", config
+                )
+
+            def process_file(self, filepath, headers, content):
+                processed_order.append(headers.get('Joke-ID', 'unknown'))
+                return True, headers, content, ""
+
+        processor = OrderCapturingProcessor()
+        processor._process_files_in_directory(input_dir)
+
+        assert processed_order == ['ccc', 'aaa', 'bbb'], (
+            f"Expected oldest-first order [ccc, aaa, bbb], got {processed_order}"
+        )
+
+
 if __name__ == "__main__":
     # Run tests directly if this file is executed
     test_stage_processor_instantiation()
     test_mock_processor_success()
     test_mock_processor_failure_then_success()
-    
+
     print("All tests passed!")
