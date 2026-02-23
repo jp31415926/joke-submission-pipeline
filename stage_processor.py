@@ -117,7 +117,7 @@ class StageProcessor(ABC):
             headers, _ = parse_joke_file(filepath)
             joke_id = headers.get('Joke-ID', 'unknown')
         except Exception as e:
-            self.logger.error(f"Could not parse headers from {filepath}: {e}")
+            self.logger.error(f"{joke_id} Could not parse headers from {filepath}: {e}")
 
         self.logger.debug(f"{joke_id} Starting to process file {filepath}")
 
