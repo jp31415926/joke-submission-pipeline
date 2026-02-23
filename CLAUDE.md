@@ -255,7 +255,7 @@ Tests use mock external scripts:
 2. **Parse with file_utils**: Always use `parse_joke_file()` and `write_joke_file()` for consistency
 3. **Update Pipeline-Stage header**: When moving files between stages, update the Pipeline-Stage header
 4. **Handle both pipelines**: Stage processors must handle both pipeline-main/ and pipeline-priority/
-5. **Log with Joke-ID**: Always include Joke-ID in log messages for traceability
+5. **Log with Joke-ID**: Whenever `joke_id` is in scope, it MUST be the first token of every log message, formatted as `f"{joke_id} <rest of message>"`. No exceptions — this applies to debug, info, warning, and error levels alike. The only time a joke_id prefix may be omitted is when no joke is being processed (e.g. module-level startup/init code where no file has been opened yet).
 
 ### Mock vs Real External Scripts
 - Tests use mock scripts in `tests/fixtures/`
